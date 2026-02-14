@@ -7,24 +7,31 @@ const anthropic = new Anthropic({
 
 // Extract interesting facts from article content
 export async function extractFactsFromArticle(article) {
-  const prompt = `You are analyzing news content to extract interesting, verifiable facts for a news literacy game.
+  const prompt = `You are analyzing news content to find the MOST INTERESTING, SURPRISING, or COUNTERINTUITIVE facts for a challenging news literacy game.
 
 CONTENT:
 Title: ${article.title}
 Source: ${article.source}
 Content: ${article.content || article.title}
 
-Extract 2-3 specific, factual claims from this content. Focus on:
-- Numbers, statistics, amounts
-- Specific dates or timeframes  
-- Company names, people, places
-- Concrete events or announcements
+Extract 2-3 facts that are:
+- SURPRISING or COUNTERINTUITIVE (not obvious)
+- Contain specific numbers, percentages, or comparisons
+- About bold predictions, unexpected trends, or contrarian views
+- Include causation or correlations (not just descriptions)
+- Show change over time or comparison between entities
+
+AVOID:
+- Boring descriptive facts
+- Obvious information
+- Generic statements
+- Simple dates or locations
 
 Respond ONLY with valid JSON array:
 [
   {
-    "fact": "specific factual statement here",
-    "context": "why this fact matters or additional context"
+    "fact": "specific surprising/counterintuitive statement with numbers or comparison",
+    "context": "why this is interesting or unexpected"
   }
 ]`;
 
@@ -49,7 +56,7 @@ Respond ONLY with valid JSON array:
 
 // Generate a claim pair from a fact
 export async function generateClaimPairFromFact(fact, article) {
-  const prompt = `Create a true/false claim pair for a news literacy game.
+  const prompt = `Create a CHALLENGING true/false claim pair for a news literacy game. This should be HARD to answer correctly.
 
 ORIGINAL FACT: ${fact.fact}
 CONTEXT: ${fact.context}
@@ -57,19 +64,27 @@ SOURCE: ${article.source}
 DATE: ${article.published_date || 'recent'}
 
 Generate:
-1. TRUE_CLAIM: The fact as stated (clear, concise, 1-2 sentences)
-2. FALSE_CLAIM: Same claim but change ONE specific detail to make it false:
-   - If there's a number, increase/decrease it by 20-50%
-   - If there's a person/company, substitute a similar one
-   - If there's a date, shift it by days/weeks
-   - Keep the same structure and tone
-3. EXPLANATION: Why the true claim is correct and how the false one misleads (2-3 sentences, includes original context)
+1. TRUE_CLAIM: The fact as stated (clear, engaging, 1-2 sentences)
+2. FALSE_CLAIM: A SUBTLE variation that requires careful attention to spot:
+   
+   MAKE IT HARD by using ONE of these techniques:
+   - Change a number by only 5-15% (e.g., 72% → 68%, $65B → $70B)
+   - Swap "more than" with "less than" or "exceeded" with "matched"
+   - Change "increased by" to "decreased by" (or vice versa)
+   - Swap two similar companies/people in same industry
+   - Change causation direction (A caused B → B caused A)
+   - Shift timeframe slightly (Q4 → Q3, 2024 → 2025)
+   - Change "majority" to "minority" or quantifiers
+   - Reverse a comparison (X exceeded Y → Y exceeded X)
+   
+3. EXPLANATION: Why the true claim matters and how the false one subtly misleads (2-3 sentences)
 
-The false claim must:
-- Sound plausible
-- Use similar language
-- Change ONLY one key detail
-- Not be obviously wrong
+CRITICAL RULES:
+- The false claim must sound COMPLETELY PLAUSIBLE
+- Use nearly identical language - only ONE word/number different
+- The difference should be SUBTLE, not obvious
+- Both claims should sound authoritative and specific
+- Avoid making the false claim ridiculous or obviously wrong
 
 Respond ONLY with valid JSON:
 {
