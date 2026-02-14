@@ -9,13 +9,14 @@ import {
   getApprovedClaimsCount 
 } from '../lib/supabase';
 import { processArticlesIntoClaims } from '../lib/claude';
+import { fetchAllSources } from '../lib/rss';
 
 export default function Admin() {
-  const [articles, setArticles] = useState([]);
   const [draftClaims, setDraftClaims] = useState([]);
   const [approvedCount, setApprovedCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('generate'); // generate, review
+  const [activeTab, setActiveTab] = useState('generate');
+  const [status, setStatus] = useState('');
 
   useEffect(() => {
     loadData();
@@ -32,55 +33,41 @@ export default function Admin() {
     }
   }
 
-  async function handleAddManualArticle() {
-    const title = prompt('Paste article title or headline:');
-    if (!title) return;
-    
-    const content = prompt('Paste article content or key facts:');
-    if (!content) return;
-    
-    const source = prompt('Source name (e.g., "Pivot Podcast", "Morning Brew"):');
-    if (!source) return;
-
+  async function handleAutoGenerate() {
     try {
       setLoading(true);
-      await saveArticles([{
-        title,
-        content,
-        source,
-        published_date: new Date().toISOString().split('T')[0],
-        processed: false
-      }]);
-      alert('Article added! Click "Generate Claims" to process it.');
-      const unprocessed = await getUnprocessedArticles();
-      setArticles(unprocessed);
-    } catch (error) {
-      alert('Error: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+      setStatus('Fetching latest content from your sources...');
+      
+      // Fetch from RSS feeds
+      const articles = await fetchAllSources();
+      
+      if (articles.length === 0) {
+        setStatus('No articles found. Check RSS feeds.');
+        setLoading(false);
+        return;
+      }
 
-  async function handleGenerateClaims() {
-    try {
-      setLoading(true);
+      setStatus(`Found ${articles.length} articles. Saving to database...`);
+      
+      // Save to database
+      await saveArticles(articles);
+      
+      setStatus(`Processing with AI... (this takes ~${articles.length * 2} seconds)`);
       
       // Get unprocessed articles
       const unprocessed = await getUnprocessedArticles();
       
-      if (unprocessed.length === 0) {
-        alert('No articles to process. Add some first!');
-        return;
-      }
-
       // Process with AI
       const claims = await processArticlesIntoClaims(unprocessed);
       
       if (claims.length === 0) {
-        alert('No claims generated. Try different content.');
+        setStatus('AI could not generate claims from this content. Try again later.');
+        setLoading(false);
         return;
       }
 
+      setStatus('Saving generated claims...');
+      
       // Save to draft
       await saveDraftClaims(claims);
       
@@ -89,12 +76,13 @@ export default function Admin() {
         await markArticleProcessed(article.id);
       }
 
-      alert(`Generated ${claims.length} claims! Review them in the "Review Claims" tab.`);
+      setStatus(`✅ Success! Generated ${claims.length} claims. Review them below.`);
       await loadData();
       setActiveTab('review');
       
     } catch (error) {
-      alert('Error: ' + error.message);
+      setStatus('❌ Error: ' + error.message);
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -103,10 +91,10 @@ export default function Admin() {
   async function handleApproveClaim(claim) {
     try {
       await approveClaim(claim);
-      alert('Claim approved! It will appear in the game.');
+      setStatus('✅ Claim approved! It will appear in the game.');
       await loadData();
     } catch (error) {
-      alert('Error: ' + error.message);
+      setStatus('❌ Error: ' + error.message);
     }
   }
 
@@ -127,10 +115,10 @@ export default function Admin() {
         false_claim: falseClaim,
         explanation
       });
-      alert('Edited and approved!');
+      setStatus('✅ Edited and approved!');
       await loadData();
     } catch (error) {
-      alert('Error: ' + error.message);
+      setStatus('❌ Error: ' + error.message);
     }
   }
 
@@ -163,7 +151,7 @@ export default function Admin() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            Generate Claims
+            Auto-Generate
           </button>
           <button
             onClick={() => setActiveTab('review')}
@@ -182,38 +170,41 @@ export default function Admin() {
       <div className="max-w-6xl mx-auto">
         {activeTab === 'generate' && (
           <div className="bg-white rounded-2xl shadow-lg p-8">
-            <h2 className="text-2xl font-bold mb-4">Generate New Claims</h2>
+            <h2 className="text-2xl font-bold mb-4">Auto-Generate Claims from Your Sources</h2>
             <p className="text-gray-600 mb-6">
-              Add articles from your sources, then let AI extract facts and generate claim pairs.
+              Click below to automatically fetch latest content from Lenny's Newsletter, Pivot, Morning Brew, BBC, and NPR, then let AI generate claim pairs.
             </p>
 
-            <div className="space-y-4 mb-8">
-              <button
-                onClick={handleAddManualArticle}
-                disabled={loading}
-                className="w-full bg-green-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors"
-              >
-                + Add Article Manually
-              </button>
+            <button
+              onClick={handleAutoGenerate}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6 rounded-xl font-bold text-xl hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 transition-all shadow-lg mb-6"
+            >
+              {loading ? '⏳ Processing...' : '🤖 Auto-Generate Claims Now'}
+            </button>
 
-              <button
-                onClick={handleGenerateClaims}
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-              >
-                {loading ? 'Generating Claims with AI...' : '🤖 Generate Claims from Articles'}
-              </button>
-            </div>
+            {status && (
+              <div className={`p-4 rounded-lg mb-6 ${
+                status.includes('✅') ? 'bg-green-50 text-green-800' :
+                status.includes('❌') ? 'bg-red-50 text-red-800' :
+                'bg-blue-50 text-blue-800'
+              }`}>
+                {status}
+              </div>
+            )}
 
             <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg">
               <h3 className="font-semibold text-blue-900 mb-2">How it works:</h3>
               <ol className="list-decimal list-inside space-y-2 text-blue-800">
-                <li>Add articles by pasting content from your podcasts/newsletters</li>
-                <li>AI extracts interesting facts from each article</li>
+                <li>Fetches latest episodes/articles from all your sources</li>
+                <li>AI extracts interesting facts from each</li>
                 <li>AI generates true/false claim pairs</li>
-                <li>Review and approve in the "Review Claims" tab</li>
-                <li>Approved claims appear in the game automatically</li>
+                <li>You review and approve</li>
+                <li>Approved claims go live automatically</li>
               </ol>
+              <p className="mt-4 text-sm text-blue-700">
+                Sources: Lenny's Newsletter, Pivot Podcast, Morning Brew Daily, BBC World News, NPR Up First
+              </p>
             </div>
           </div>
         )}
@@ -223,7 +214,7 @@ export default function Admin() {
             {draftClaims.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
                 <p className="text-gray-500 text-lg">
-                  No claims to review yet. Generate some in the "Generate Claims" tab!
+                  No claims to review yet. Click "Auto-Generate Claims Now" to create some!
                 </p>
               </div>
             ) : (
