@@ -29,7 +29,23 @@ function Game() {
     loadClaims();
   }, []);
 
-
+  async function loadClaims() {
+    try {
+      const randomClaims = await getRandomApprovedClaims(10);
+      
+      if (randomClaims.length === 0) {
+        setClaims([]);
+      } else {
+        setClaims(randomClaims);
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading claims:', error);
+      setClaims([]);
+      setLoading(false);
+    }
+  }
 
   async function handleSelectClaim(claimType) {
     const correct = claimType === 'true';
@@ -40,10 +56,8 @@ function Game() {
 
     // Track answer
     const currentClaim = claims[currentIndex];
-    if (currentClaim.id !== 'demo') {
-      await incrementClaimShown(currentClaim.id);
-      await saveUserAnswer(sessionId, currentClaim.id, claimType, correct);
-    }
+    await incrementClaimShown(currentClaim.id);
+    await saveUserAnswer(sessionId, currentClaim.id, claimType, correct);
   }
 
   async function nextClaim() {
@@ -227,4 +241,3 @@ export default function App() {
   
   return <Game />;
 }
-
