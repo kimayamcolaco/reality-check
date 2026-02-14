@@ -71,7 +71,39 @@ function Game() {
     loadClaims();
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
 
+  // Empty state - no claims yet
+  if (claims.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
+        <div className="max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center">
+          <div className="text-6xl mb-4">🚀</div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">
+            Reality Check
+          </h1>
+          <p className="text-gray-600 mb-6">
+            No claims available yet. Visit the admin panel to generate your first batch from your news sources!
+          </p>
+          <a
+            href="/admin"
+            className="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            Go to Admin Panel →
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const currentClaim = claims[currentIndex];
+  const isCorrect = selectedClaim === 'true';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
