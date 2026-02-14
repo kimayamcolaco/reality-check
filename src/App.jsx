@@ -29,30 +29,7 @@ function Game() {
     loadClaims();
   }, []);
 
-  async function loadClaims() {
-    try {
-      const randomClaims = await getRandomApprovedClaims(10);
-      
-      if (randomClaims.length === 0) {
-        // No approved claims yet, show demo
-        setClaims([{
-          id: 'demo',
-          true_claim: "Welcome to Reality Check! Add some claims in the admin panel to get started.",
-          false_claim: "This is just a demo claim to show you how the game works.",
-          explanation: "Go to /admin to add articles and generate claims using AI!",
-          source: "Demo",
-          date: "Today"
-        }]);
-      } else {
-        setClaims(randomClaims);
-      }
-      
-      setLoading(false);
-    } catch (error) {
-      console.error('Error loading claims:', error);
-      setLoading(false);
-    }
-  }
+
 
   async function handleSelectClaim(claimType) {
     const correct = claimType === 'true';
@@ -94,16 +71,7 @@ function Game() {
     loadClaims();
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="text-xl text-gray-600">Loading...</div>
-      </div>
-    );
-  }
 
-  const currentClaim = claims[currentIndex];
-  const isCorrect = selectedClaim === 'true';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
