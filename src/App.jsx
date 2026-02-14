@@ -1,55 +1,88 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Admin from './pages/Admin';
+import { 
+  getRandomApprovedClaims, 
+  incrementClaimShown,
+  saveUserAnswer 
+} from './lib/supabase';
 
-// Demo claims - replace these with real news facts from your sources
-const DEMO_CLAIMS = [
-  {
-    id: 1,
-    true_claim: "Meta announced plans to invest over $65 billion in AI infrastructure in 2025.",
-    false_claim: "Meta announced plans to invest over $45 billion in AI infrastructure in 2025.",
-    source: "Pivot Podcast",
-    date: "Feb 10, 2025",
-    explanation: "Kara Swisher and Scott Galloway discussed Meta's massive AI spending spree, noting this $65 billion investment represents one of the largest capital expenditures in tech history. They highlighted how this reflects the intense competition in the AI race between Meta, Google, and Microsoft."
-  },
-  {
-    id: 2,
-    true_claim: "Research shows that 72% of successful product launches involve extensive user testing before release.",
-    false_claim: "Research shows that 48% of successful product launches involve extensive user testing before release.",
-    source: "Lenny's Newsletter",
-    date: "Feb 8, 2025",
-    explanation: "Lenny Rachitsky shared data from a study of 200+ product launches, revealing that companies doing extensive user testing had significantly higher success rates. The 72% figure came from analyzing top-performing consumer apps that achieved product-market fit within their first year."
-  },
-  {
-    id: 3,
-    true_claim: "The U.S. economy added 225,000 jobs in January 2025, exceeding economists' expectations.",
-    false_claim: "The U.S. economy added 175,000 jobs in January 2025, falling short of economists' expectations.",
-    source: "Morning Brew Daily",
-    date: "Feb 7, 2025",
-    explanation: "Morning Brew reported that January's jobs report showed stronger-than-expected growth, with 225,000 new positions added across sectors. This beat economist predictions of 180,000 jobs and signals continued labor market resilience despite higher interest rates."
+// Generate session ID
+function getSessionId() {
+  let sessionId = localStorage.getItem('reality_check_session');
+  if (!sessionId) {
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('reality_check_session', sessionId);
   }
-];
+  return sessionId;
+}
 
-export default function App() {
+function Game() {
+  const [claims, setClaims] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [score, setScore] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [sessionId] = useState(getSessionId());
 
-  const currentClaim = DEMO_CLAIMS[currentIndex];
-  const isCorrect = selectedClaim === 'true';
-  const isComplete = currentIndex >= DEMO_CLAIMS.length - 1 && showFeedback;
+  useEffect(() => {
+    loadClaims();
+  }, []);
 
-  function handleSelectClaim(claimType) {
+  async function loadClaims() {
+    try {
+      const randomClaims = await getRandomApprovedClaims(10);
+      
+      if (randomClaims.length === 0) {
+        // No approved claims yet, show demo
+        setClaims([{
+          id: 'demo',
+          true_claim: "Welcome to Reality Check! Add some claims in the admin panel to get started.",
+          false_claim: "This is just a demo claim to show you how the game works.",
+          explanation: "Go to /admin to add articles and generate claims using AI!",
+          source: "Demo",
+          date: "Today"
+        }]);
+      } else {
+        setClaims(randomClaims);
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading claims:', error);
+      setLoading(false);
+    }
+  }
+
+  async function handleSelectClaim(claimType) {
     const correct = claimType === 'true';
     setSelectedClaim(claimType);
     setShowFeedback(true);
+    
     if (correct) setScore(prev => prev + 1);
+
+    // Track answer
+    const currentClaim = claims[currentIndex];
+    if (currentClaim.id !== 'demo') {
+      await incrementClaimShown(currentClaim.id);
+      await saveUserAnswer(sessionId, currentClaim.id, claimType, correct);
+    }
   }
 
-  function nextClaim() {
-    if (currentIndex < DEMO_CLAIMS.length - 1) {
+  async function nextClaim() {
+    if (currentIndex < claims.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setSelectedClaim(null);
       setShowFeedback(false);
+    } else {
+      // Load more claims
+      const moreClaims = await getRandomApprovedClaims(10);
+      if (moreClaims.length > 0) {
+        setClaims(moreClaims);
+        setCurrentIndex(0);
+        setSelectedClaim(null);
+        setShowFeedback(false);
+      }
     }
   }
 
@@ -58,7 +91,19 @@ export default function App() {
     setSelectedClaim(null);
     setShowFeedback(false);
     setScore(0);
+    loadClaims();
   }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+        <div className="text-xl text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  const currentClaim = claims[currentIndex];
+  const isCorrect = selectedClaim === 'true';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
@@ -74,6 +119,14 @@ export default function App() {
           Points: {score}
         </div>
       </div>
+
+      {/* Admin Link */}
+      <a
+        href="/admin"
+        className="fixed top-4 right-4 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+      >
+        Admin
+      </a>
 
       {/* Cards Container */}
       <div className="w-full max-w-4xl grid md:grid-cols-2 gap-6 mb-8">
@@ -152,28 +205,26 @@ export default function App() {
             </p>
           </div>
 
-          {!isComplete ? (
-            <button
-              onClick={nextClaim}
-              className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
-            >
-              Next Question →
-            </button>
-          ) : (
-            <div className="text-center">
-              <p className="text-xl mb-4">
-                Final Score: <span className="font-bold text-blue-600">{score}/{DEMO_CLAIMS.length}</span>
-              </p>
-              <button
-                onClick={resetGame}
-                className="bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
-              >
-                Play Again
-              </button>
-            </div>
-          )}
+          <button
+            onClick={nextClaim}
+            className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            Next Question →
+          </button>
         </div>
       )}
     </div>
   );
 }
+
+export default function App() {
+  // Simple routing
+  const isAdmin = window.location.pathname === '/admin';
+  
+  if (isAdmin) {
+    return <Admin />;
+  }
+  
+  return <Game />;
+}
+
