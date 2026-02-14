@@ -1,27 +1,30 @@
 import { useState } from 'react';
 
-// Demo claims - you'll replace with real data from database later
+// Demo claims - replace these with real news facts from your sources
 const DEMO_CLAIMS = [
   {
     id: 1,
-    true_claim: "Lenny Rachitsky's newsletter covers product management and growth strategies for tech companies.",
-    false_claim: "Lenny Rachitsky's newsletter focuses primarily on venture capital fundraising and startup exits.",
-    explanation: "Lenny's Newsletter is known for in-depth product management insights, growth frameworks, and interviews with top PMs at companies like Airbnb and Stripe. It focuses on helping product teams build better products, not on VC fundraising or exit strategies.",
-    source: "Lenny's Newsletter"
+    true_claim: "Meta announced plans to invest over $65 billion in AI infrastructure in 2025.",
+    false_claim: "Meta announced plans to invest over $45 billion in AI infrastructure in 2025.",
+    source: "Pivot Podcast",
+    date: "Feb 10, 2025",
+    explanation: "Kara Swisher and Scott Galloway discussed Meta's massive AI spending spree, noting this $65 billion investment represents one of the largest capital expenditures in tech history. They highlighted how this reflects the intense competition in the AI race between Meta, Google, and Microsoft."
   },
   {
     id: 2,
-    true_claim: "The Pivot podcast hosts Kara Swisher and Scott Galloway discuss tech news and business trends weekly.",
-    false_claim: "The Pivot podcast features daily episodes analyzing cryptocurrency markets and NFT trends.",
-    explanation: "Pivot is a weekly podcast where tech journalist Kara Swisher and NYU professor Scott Galloway cover major tech industry news, business strategy, and cultural trends. While they discuss crypto occasionally, it's a general tech/business show, not a daily crypto-focused podcast.",
-    source: "Pivot Podcast"
+    true_claim: "Research shows that 72% of successful product launches involve extensive user testing before release.",
+    false_claim: "Research shows that 48% of successful product launches involve extensive user testing before release.",
+    source: "Lenny's Newsletter",
+    date: "Feb 8, 2025",
+    explanation: "Lenny Rachitsky shared data from a study of 200+ product launches, revealing that companies doing extensive user testing had significantly higher success rates. The 72% figure came from analyzing top-performing consumer apps that achieved product-market fit within their first year."
   },
   {
     id: 3,
-    true_claim: "Morning Brew delivers daily business news in a conversational, easy-to-digest email format.",
-    false_claim: "Morning Brew is a weekly print magazine focused on Wall Street trading strategies.",
-    explanation: "Morning Brew is a daily email newsletter (and podcast) that delivers business, finance, and tech news in an accessible, millennial-friendly format. It's known for making complex business topics easy to understand, not for being a traditional print magazine or focusing solely on trading.",
-    source: "Morning Brew"
+    true_claim: "The U.S. economy added 225,000 jobs in January 2025, exceeding economists' expectations.",
+    false_claim: "The U.S. economy added 175,000 jobs in January 2025, falling short of economists' expectations.",
+    source: "Morning Brew Daily",
+    date: "Feb 7, 2025",
+    explanation: "Morning Brew reported that January's jobs report showed stronger-than-expected growth, with 225,000 new positions added across sectors. This beat economist predictions of 180,000 jobs and signals continued labor market resilience despite higher interest rates."
   }
 ];
 
@@ -144,7 +147,7 @@ export default function App() {
 
           <div className="bg-blue-50 rounded-xl p-6 mb-6">
             <p className="text-lg text-gray-800 leading-relaxed">
-              <span className="font-semibold">According to {currentClaim.source}:</span>{' '}
+              <span className="font-semibold">According to {currentClaim.source} ({currentClaim.date}):</span>{' '}
               {currentClaim.explanation}
             </p>
           </div>
