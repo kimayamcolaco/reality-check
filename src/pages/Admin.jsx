@@ -203,7 +203,7 @@ export default function Admin() {
                 <li>Approved claims go live automatically</li>
               </ol>
               <p className="mt-4 text-sm text-blue-700">
-                Sources: Lenny's Newsletter, Pivot Podcast, Morning Brew Daily, BBC World News, NPR Up First
+                Sources: Lenny's Newsletter, Pivot Podcast, Morning Brew Daily, BBC World News, NPR Up First, Reuters, New York Times, TechCrunch
               </p>
             </div>
           </div>
