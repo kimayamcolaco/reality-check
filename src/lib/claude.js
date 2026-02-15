@@ -56,41 +56,51 @@ Respond ONLY with valid JSON array:
 
 // Generate a claim pair from a fact
 export async function generateClaimPairFromFact(fact, article) {
-  const prompt = `Create a CHALLENGING true/false claim pair that tests if someone actually consumed this content (not just logic).
+  const prompt = `Create a true/false claim pair that ONLY someone who consumed this content could answer correctly.
 
 ORIGINAL FACT: ${fact.fact}
 CONTEXT: ${fact.context}
 SOURCE: ${article.source}
-DATE: ${article.published_date || 'recent'}
+
+CRITICAL RULE: The false claim must change a SPECIFIC FACTUAL DETAIL, not a logical inference.
+
+✅ GOOD EXAMPLES (Fact-Based - Can't Guess):
+- TRUE: "The study surveyed 1,247 product managers"
+  FALSE: "The study surveyed 847 product managers"
+  
+- TRUE: "OpenAI's revenue reached $3.4 billion in 2024"
+  FALSE: "OpenAI's revenue reached $4.1 billion in 2024"
+  
+- TRUE: "The partnership with Stripe was announced in September"
+  FALSE: "The partnership with Square was announced in September"
+
+❌ BAD EXAMPLES (Logic-Based - Can Guess):
+- TRUE: "Secretary of State met with allies"
+  FALSE: "Secretary of Defense met with allies" ← NO! People can guess which role handles diplomacy
+  
+- TRUE: "The company criticized the policy"
+  FALSE: "The company supported the policy" ← NO! Sentiment is guessable
+  
+- TRUE: "Sales increased 20%"
+  FALSE: "Sales decreased 20%" ← NO! Direction is logical inference
+
+WHAT TO CHANGE (Pick ONE):
+1. Specific number/percentage: 127 → 142, 68% → 73%
+2. Exact name: "Stripe" → "Square", "Microsoft" → "Google"
+3. Precise date/timeframe: "Q3" → "Q4", "September" → "October"
+4. Actual quantity: "1,247 respondents" → "847 respondents"
+5. Real data point: "grew 23%" → "grew 31%"
+
+DO NOT CHANGE:
+- Roles/positions (logic-based)
+- Sentiment/tone (guessable)
+- Increase/decrease direction (inference)
+- Positive/negative framing (obvious)
 
 Generate:
-1. TRUE_CLAIM: A specific, verifiable fact from the content (1-2 sentences)
-2. FALSE_CLAIM: Change ONE CONCRETE DETAIL that you'd only know is wrong if you consumed the source
-
-FOCUS ON CONCRETE FACTS:
-✅ GOOD - Requires knowing the content:
-   - Specific numbers: "raised $127 million" vs "$142 million"
-   - Exact percentages: "68% of users" vs "74% of users"  
-   - Precise names: "partnered with Stripe" vs "partnered with Square"
-   - Specific timeframes: "Q3 2024" vs "Q4 2024"
-   - Actual data points: "grew 23% year-over-year" vs "grew 31% year-over-year"
-   - Direct attributions: "according to McKinsey" vs "according to BCG"
-   - Exact quantities: "interviewed 200 founders" vs "interviewed 350 founders"
-
-❌ BAD - Can guess with logic:
-   - Sentiment: "criticizing" vs "supporting"
-   - Obvious inferences: "increased" vs "decreased"  
-   - General knowledge: "popular" vs "unpopular"
-   - Common sense: "positive" vs "negative"
-
-RULES:
-- Both claims must sound equally plausible
-- The difference must be a SPECIFIC FACTUAL DETAIL mentioned in the source
-- Someone who didn't consume the content should have no way to know which is correct
-- Change only ONE number, name, date, or specific detail
-- Keep wording nearly identical
-
-3. EXPLANATION: What the actual fact was and why the false version is subtly wrong (2-3 sentences)
+1. TRUE_CLAIM: Specific fact with exact numbers/names/dates (1-2 sentences)
+2. FALSE_CLAIM: Same sentence, change ONLY one concrete factual detail
+3. EXPLANATION: What the real fact was and why it matters (2-3 sentences)
 
 Respond ONLY with valid JSON:
 {
@@ -143,14 +153,18 @@ export async function processArticlesIntoClaims(articles) {
         continue;
       }
       
-      // Generate claim pair from first fact
-      const fact = facts[0];
-      const claimPair = await generateClaimPairFromFact(fact, article);
-      
-      allClaims.push(claimPair);
-      
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Generate claim pairs from ALL extracted facts (not just first one)
+      for (const fact of facts) {
+        try {
+          const claimPair = await generateClaimPairFromFact(fact, article);
+          allClaims.push(claimPair);
+          
+          // Small delay between generations
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (error) {
+          console.error(`Failed to generate claim from fact:`, error);
+        }
+      }
       
     } catch (error) {
       console.error(`Failed to process article: ${article.title}`, error);
