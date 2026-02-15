@@ -24,6 +24,21 @@ export const NEWS_SOURCES = [
     name: 'Up First by NPR',
     url: 'https://feeds.npr.org/510318/podcast.xml',
     type: 'podcast'
+  },
+  {
+    name: 'Reuters',
+    url: 'https://feeds.reuters.com/reuters/topNews',
+    type: 'news'
+  },
+  {
+    name: 'New York Times',
+    url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml',
+    type: 'news'
+  },
+  {
+    name: 'TechCrunch',
+    url: 'https://techcrunch.com/feed/',
+    type: 'news'
   }
 ];
 
