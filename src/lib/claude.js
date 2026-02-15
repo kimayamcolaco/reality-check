@@ -56,7 +56,7 @@ Respond ONLY with valid JSON array:
 
 // Generate a claim pair from a fact
 export async function generateClaimPairFromFact(fact, article) {
-  const prompt = `Create a CHALLENGING true/false claim pair for a news literacy game. This should be HARD to answer correctly.
+  const prompt = `Create a CHALLENGING true/false claim pair that tests if someone actually consumed this content (not just logic).
 
 ORIGINAL FACT: ${fact.fact}
 CONTEXT: ${fact.context}
@@ -64,27 +64,33 @@ SOURCE: ${article.source}
 DATE: ${article.published_date || 'recent'}
 
 Generate:
-1. TRUE_CLAIM: The fact as stated (clear, engaging, 1-2 sentences)
-2. FALSE_CLAIM: A SUBTLE variation that requires careful attention to spot:
-   
-   MAKE IT HARD by using ONE of these techniques:
-   - Change a number by only 5-15% (e.g., 72% → 68%, $65B → $70B)
-   - Swap "more than" with "less than" or "exceeded" with "matched"
-   - Change "increased by" to "decreased by" (or vice versa)
-   - Swap two similar companies/people in same industry
-   - Change causation direction (A caused B → B caused A)
-   - Shift timeframe slightly (Q4 → Q3, 2024 → 2025)
-   - Change "majority" to "minority" or quantifiers
-   - Reverse a comparison (X exceeded Y → Y exceeded X)
-   
-3. EXPLANATION: Why the true claim matters and how the false one subtly misleads (2-3 sentences)
+1. TRUE_CLAIM: A specific, verifiable fact from the content (1-2 sentences)
+2. FALSE_CLAIM: Change ONE CONCRETE DETAIL that you'd only know is wrong if you consumed the source
 
-CRITICAL RULES:
-- The false claim must sound COMPLETELY PLAUSIBLE
-- Use nearly identical language - only ONE word/number different
-- The difference should be SUBTLE, not obvious
-- Both claims should sound authoritative and specific
-- Avoid making the false claim ridiculous or obviously wrong
+FOCUS ON CONCRETE FACTS:
+✅ GOOD - Requires knowing the content:
+   - Specific numbers: "raised $127 million" vs "$142 million"
+   - Exact percentages: "68% of users" vs "74% of users"  
+   - Precise names: "partnered with Stripe" vs "partnered with Square"
+   - Specific timeframes: "Q3 2024" vs "Q4 2024"
+   - Actual data points: "grew 23% year-over-year" vs "grew 31% year-over-year"
+   - Direct attributions: "according to McKinsey" vs "according to BCG"
+   - Exact quantities: "interviewed 200 founders" vs "interviewed 350 founders"
+
+❌ BAD - Can guess with logic:
+   - Sentiment: "criticizing" vs "supporting"
+   - Obvious inferences: "increased" vs "decreased"  
+   - General knowledge: "popular" vs "unpopular"
+   - Common sense: "positive" vs "negative"
+
+RULES:
+- Both claims must sound equally plausible
+- The difference must be a SPECIFIC FACTUAL DETAIL mentioned in the source
+- Someone who didn't consume the content should have no way to know which is correct
+- Change only ONE number, name, date, or specific detail
+- Keep wording nearly identical
+
+3. EXPLANATION: What the actual fact was and why the false version is subtly wrong (2-3 sentences)
 
 Respond ONLY with valid JSON:
 {
