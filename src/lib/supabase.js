@@ -189,6 +189,18 @@ export async function deleteClaimPermanently(claimId) {
   if (error) throw error;
 }
 
+export async function deleteOldManualClaims() {
+  // Delete claims older than a specific date (before automation started)
+  const automationStartDate = '2025-02-19'; // Adjust this to when you deployed automation
+  
+  const { error } = await supabase
+    .from('claim_pairs_approved')
+    .delete()
+    .lt('created_at', automationStartDate);
+  
+  if (error) throw error;
+}
+
 export async function clearReports(claimId) {
   const { error } = await supabase
     .from('claim_pairs_approved')
