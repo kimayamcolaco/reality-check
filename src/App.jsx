@@ -23,8 +23,22 @@ function Game() {
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [score, setScore] = useState(0);
+  const [totalAnswered, setTotalAnswered] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(getSessionId());
+
+  // Fun titles based on score
+  const getFunTitle = () => {
+    const percentage = totalAnswered > 0 ? (score / totalAnswered) * 100 : 0;
+    
+    if (totalAnswered === 0) return "News Rookie";
+    if (percentage >= 90) return "Reality Expert";
+    if (percentage >= 75) return "Fake News Detective";
+    if (percentage > 50) return "Truth Seeker";
+    if (percentage === 50) return "50/50 Guesser";
+    if (percentage >= 25) return "Fake News Victim";
+    return "Major Reality Check Needed";
+  };
 
   useEffect(() => {
     loadClaims();
@@ -52,11 +66,10 @@ function Game() {
     const isCorrect = claimType === 'true';
     setSelectedClaim(claimType);
     setShowFeedback(true);
+    setTotalAnswered(prev => prev + 1);
     
     if (isCorrect) {
-      setCorrect(prev => prev + 1);
-    } else {
-      setWrong(prev => prev + 1);
+      setScore(prev => prev + 1);
     }
 
     // Track answer
@@ -88,11 +101,12 @@ function Game() {
   }
 
   function getTitle(accuracy) {
-    if (accuracy >= 90) return { title: 'Reality Expert', color: 'text-yellow-600' };
-    if (accuracy >= 75) return { title: 'Fake News Detective',  color: 'text-green-600' };
-    if (accuracy >= 60) return { title: 'Pretty Up To Date', color: 'text-blue-600' };
-    if (accuracy >= 50) return { title: 'Amateur News Reader', color: 'text-gray-600' };
-    return { title: 'Might Need a Reality Check', color: 'text-orange-600' };
+    if (accuracy >= 90) return { title: 'Reality Expert', emoji: '🎯', color: 'text-green-600' };
+    if (accuracy >= 75) return { title: 'Fake News Detective', emoji: '🕵️', color: 'text-green-600' };
+    if (accuracy > 50) return { title: 'Truth Seeker', emoji: '🔍', color: 'text-blue-600' };
+    if (accuracy === 50) return { title: '50/50 Guesser', emoji: '🎲', color: 'text-gray-600' };
+    if (accuracy >= 25) return { title: 'Fake News Victim', emoji: '📰', color: 'text-orange-600' };
+    return { title: 'Major Reality Check Needed', emoji: '⚠️', color: 'text-red-600' };
   }
 
   function resetGame() {
@@ -100,6 +114,7 @@ function Game() {
     setSelectedClaim(null);
     setShowFeedback(false);
     setScore(0);
+    setTotalAnswered(0);
     loadClaims();
   }
 
@@ -121,7 +136,7 @@ function Game() {
             Reality Check
           </h1>
           <p className="text-gray-600 mb-6">
-            No claims available yet. Visit the admin panel to generate your first batch from your news sources!
+            New claims auto-generate daily at 6am. Check back soon or visit admin to see the schedule!
           </p>
           <a
             href="/admin"
@@ -136,7 +151,6 @@ function Game() {
 
   const currentClaim = claims[currentIndex];
   const isCorrect = selectedClaim === 'true';
-  const totalAnswered = currentIndex + (showFeedback ? 1 : 0);
   const accuracy = totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
   const titleInfo = getTitle(accuracy);
 
@@ -150,12 +164,12 @@ function Game() {
         <p className="text-lg text-gray-600 mb-2">
           Fact or fiction? Pick the one you believe is a fact!
         </p>
-        <div className="text-2xl font-semibold text-blue-600 mb-2">
-          Points: {score}/{totalAnswered}
+        <div className="text-3xl font-bold text-blue-600 mb-2">
+          Real News Identified: {score}/{totalAnswered}
         </div>
         {totalAnswered > 0 && (
           <div className={`text-lg font-medium ${titleInfo.color}`}>
-            {titleInfo.title} ({accuracy}%)
+            {titleInfo.emoji} {titleInfo.title} ({accuracy}%)
           </div>
         )}
       </div>
@@ -170,22 +184,21 @@ function Game() {
 
       {/* Cards Container */}
       <div className="w-full max-w-4xl grid md:grid-cols-2 gap-6 mb-8">
-        {/* Card 1 - True Claim */}
+        {/* Card 1 - True Claim (ALWAYS GREEN) */}
         <button
           onClick={() => !showFeedback && handleSelectClaim('true')}
           disabled={showFeedback}
-          className={`group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 min-h-[200px] ${
-            !showFeedback ? 'hover:scale-105 cursor-pointer' : 'cursor-default'
-          } ${
-            showFeedback && selectedClaim === 'true'
-              ? isCorrect
-                ? 'ring-4 ring-green-400'
-                : 'opacity-50'
-              : ''
-          } ${
-            showFeedback && selectedClaim === 'false' && 'ring-4 ring-red-400'
+          className={`group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 min-h-[200px] border-4 ${
+            !showFeedback 
+              ? 'border-transparent hover:scale-105 cursor-pointer' 
+              : 'cursor-default border-green-400 bg-green-50'
           }`}
         >
+          {showFeedback && (
+            <div className="absolute top-4 right-4 text-3xl">
+              ✓
+            </div>
+          )}
           <div className="flex flex-col h-full justify-center items-center text-center">
             <p className="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed">
               {currentClaim.true_claim}
@@ -193,22 +206,21 @@ function Game() {
           </div>
         </button>
 
-        {/* Card 2 - False Claim */}
+        {/* Card 2 - False Claim (ALWAYS RED) */}
         <button
           onClick={() => !showFeedback && handleSelectClaim('false')}
           disabled={showFeedback}
-          className={`group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 min-h-[200px] ${
-            !showFeedback ? 'hover:scale-105 cursor-pointer' : 'cursor-default'
-          } ${
-            showFeedback && selectedClaim === 'false'
-              ? !isCorrect
-                ? 'ring-4 ring-green-400'
-                : 'opacity-50'
-              : ''
-          } ${
-            showFeedback && selectedClaim === 'true' && 'ring-4 ring-red-400'
+          className={`group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 min-h-[200px] border-4 ${
+            !showFeedback 
+              ? 'border-transparent hover:scale-105 cursor-pointer' 
+              : 'cursor-default border-red-400 bg-red-50'
           }`}
         >
+          {showFeedback && (
+            <div className="absolute top-4 right-4 text-3xl">
+              ✗
+            </div>
+          )}
           <div className="flex flex-col h-full justify-center items-center text-center">
             <p className="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed">
               {currentClaim.false_claim}
@@ -256,7 +268,7 @@ function Game() {
             onClick={() => handleReportClaim(currentClaim.id)}
             className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm"
           >
-            Report This Claim
+            👎 Report This Claim
           </button>
         </div>
       )}
