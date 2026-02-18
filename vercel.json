@@ -1,4 +1,4 @@
-json{
+{
   "rewrites": [
     {
       "source": "/(.*)",
@@ -8,7 +8,7 @@ json{
   "crons": [
     {
       "path": "/api/cron/daily-generate",
-      "schedule": "0 4 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
