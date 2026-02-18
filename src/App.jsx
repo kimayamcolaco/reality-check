@@ -22,9 +22,25 @@ function Game() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [score, setScore] = useState(0);
+  const [correct, setCorrect] = useState(0);
+  const [wrong, setWrong] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(getSessionId());
+
+  // Fun titles based on performance
+  function getTitle() {
+    const total = correct + wrong;
+    if (total === 0) return "News Detective 🔍";
+    
+    const accuracy = correct / total;
+    
+    if (accuracy >= 0.9) return "Truth Seeker 🎯";
+    if (accuracy >= 0.75) return "Reality Expert ⭐";
+    if (accuracy >= 0.6) return "Fact Checker ✓";
+    if (accuracy >= 0.5) return "News Reader 📰";
+    if (accuracy >= 0.3) return "Reality Checks Needed 🤔";
+    return "Fake News Victim 😅";
+  }
 
   useEffect(() => {
     loadClaims();
@@ -49,16 +65,20 @@ function Game() {
   }
 
   async function handleSelectClaim(claimType) {
-    const correct = claimType === 'true';
+    const isCorrect = claimType === 'true';
     setSelectedClaim(claimType);
     setShowFeedback(true);
     
-    if (correct) setScore(prev => prev + 1);
+    if (isCorrect) {
+      setCorrect(prev => prev + 1);
+    } else {
+      setWrong(prev => prev + 1);
+    }
 
     // Track answer
     const currentClaim = claims[currentIndex];
     await incrementClaimShown(currentClaim.id);
-    await saveUserAnswer(sessionId, currentClaim.id, claimType, correct);
+    await saveUserAnswer(sessionId, currentClaim.id, claimType, isCorrect);
   }
 
   async function handleReportClaim(claimId) {
@@ -83,11 +103,20 @@ function Game() {
     }
   }
 
+  function getTitle(accuracy) {
+    if (accuracy >= 90) return { title: 'Reality Expert', emoji: '🏆', color: 'text-yellow-600' };
+    if (accuracy >= 75) return { title: 'Fake News Detective', emoji: '🕵️', color: 'text-green-600' };
+    if (accuracy >= 60) return { title: 'Pretty Up To Date', emoji: '📰', color: 'text-blue-600' };
+    if (accuracy >= 50) return { title: 'Amateur News Reader', emoji: '📖', color: 'text-gray-600' };
+    return { title: 'Might Need a Reality Check', emoji: '🤔', color: 'text-orange-600' };
+  }
+
   function resetGame() {
     setCurrentIndex(0);
     setSelectedClaim(null);
     setShowFeedback(false);
-    setScore(0);
+    setCorrect(0);
+    setWrong(0);
     loadClaims();
   }
 
@@ -124,6 +153,9 @@ function Game() {
 
   const currentClaim = claims[currentIndex];
   const isCorrect = selectedClaim === 'true';
+  const totalAnswered = currentIndex + (showFeedback ? 1 : 0);
+  const accuracy = totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
+  const titleInfo = getTitle(accuracy);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
@@ -132,11 +164,16 @@ function Game() {
         <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
           Reality Check
         </h1>
-        <p className="text-lg text-gray-600 mb-4">
+        <p className="text-lg text-gray-600 mb-2">
           Fact or fiction? Pick the one you believe is a fact!
         </p>
-        <div className="text-2xl font-semibold text-blue-600">
-          Points: {score}
+        <div className="text-xl font-semibold text-blue-600 mb-1">
+          {getTitle()}
+        </div>
+        <div className="text-lg text-gray-700">
+          <span className="text-green-600 font-bold">{correct} ✓</span>
+          {' '}/{' '}
+          <span className="text-red-600 font-bold">{wrong} ✗</span>
         </div>
       </div>
 
@@ -236,7 +273,7 @@ function Game() {
             onClick={() => handleReportClaim(currentClaim.id)}
             className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm"
           >
-            Report This Claim
+            👎 Report This Claim
           </button>
         </div>
       )}
@@ -254,4 +291,3 @@ export default function App() {
   
   return <Game />;
 }
-
