@@ -115,8 +115,7 @@ function Game() {
     setCurrentIndex(0);
     setSelectedClaim(null);
     setShowFeedback(false);
-    setCorrect(0);
-    setWrong(0);
+    setScore(0);
     loadClaims();
   }
 
@@ -167,14 +166,14 @@ function Game() {
         <p className="text-lg text-gray-600 mb-2">
           Fact or fiction? Pick the one you believe is a fact!
         </p>
-        <div className="text-xl font-semibold text-blue-600 mb-1">
-          {getTitle()}
+        <div className="text-2xl font-semibold text-blue-600 mb-2">
+          Points: {score}/{totalAnswered}
         </div>
-        <div className="text-lg text-gray-700">
-          <span className="text-green-600 font-bold">{correct} ✓</span>
-          {' '}/{' '}
-          <span className="text-red-600 font-bold">{wrong} ✗</span>
-        </div>
+        {totalAnswered > 0 && (
+          <div className={`text-lg font-medium ${titleInfo.color}`}>
+            {titleInfo.emoji} {titleInfo.title} ({accuracy}%)
+          </div>
+        )}
       </div>
 
       {/* Admin Link */}
