@@ -120,9 +120,16 @@ Respond ONLY with JSON:
 }
 
 export default async function handler(req, res) {
-  // Security: Verify cron secret
+  // Vercel Cron jobs are automatically authenticated
+  // Only check auth if it's a manual trigger with wrong/missing header
   const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  
+  // Allow Vercel cron (no auth header) OR correct manual auth
+  const isVercelCron = !authHeader; // Vercel cron doesn't send auth header
+  const isManualWithAuth = authHeader === `Bearer ${cronSecret}`;
+  
+  if (!isVercelCron && !isManualWithAuth) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
