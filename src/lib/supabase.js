@@ -156,16 +156,48 @@ export async function saveUserAnswer(sessionId, claimId, selectedClaim, isCorrec
   if (error) console.error('Error saving answer:', error);
 }
 
-export async function getSessionStats(sessionId) {
+export async function reportClaim(claimId, reason = null) {
+  const { error } = await supabase
+    .from('claim_pairs_approved')
+    .update({ 
+      times_reported: supabase.raw('COALESCE(times_reported, 0) + 1'),
+      last_reported_at: new Date().toISOString(),
+      report_reason: reason
+    })
+    .eq('id', claimId);
+  
+  if (error) console.error('Error reporting claim:', error);
+}
+
+export async function getReportedClaims() {
   const { data, error } = await supabase
-    .from('user_sessions')
-    .select('is_correct')
-    .eq('session_id', sessionId);
+    .from('claim_pairs_approved')
+    .select('*')
+    .gt('times_reported', 0)
+    .order('times_reported', { ascending: false });
   
-  if (error || !data) return { correct: 0, total: 0 };
+  if (error) throw error;
+  return data || [];
+}
+
+export async function deleteClaimPermanently(claimId) {
+  const { error } = await supabase
+    .from('claim_pairs_approved')
+    .delete()
+    .eq('id', claimId);
   
-  return {
-    correct: data.filter(a => a.is_correct).length,
-    total: data.length
-  };
+  if (error) throw error;
+}
+
+export async function clearReports(claimId) {
+  const { error } = await supabase
+    .from('claim_pairs_approved')
+    .update({ 
+      times_reported: 0,
+      last_reported_at: null,
+      report_reason: null
+    })
+    .eq('id', claimId);
+  
+  if (error) throw error;
 }
