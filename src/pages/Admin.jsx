@@ -3,7 +3,8 @@ import {
   getApprovedClaimsCount,
   getReportedClaims,
   deleteClaimPermanently,
-  clearReports
+  clearReports,
+  deleteOldManualClaims
 } from '../lib/supabase';
 
 export default function Admin() {
@@ -63,6 +64,25 @@ export default function Admin() {
             <p className="text-sm text-blue-800">
               <strong>Sources:</strong> Lenny's Newsletter, Pivot Podcast, Morning Brew Daily, BBC World News, NPR Up First, Reuters, New York Times, TechCrunch
             </p>
+          </div>
+          
+          <div className="mt-6">
+            <button
+              onClick={async () => {
+                if (confirm('Delete all old manually-added claims? This will only keep AI-generated claims.')) {
+                  try {
+                    await deleteOldManualClaims();
+                    alert('✅ Old claims deleted! Only AI-generated claims remain.');
+                    await loadData();
+                  } catch (error) {
+                    alert('Error: ' + error.message);
+                  }
+                }
+              }}
+              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 text-sm"
+            >
+              🗑️ Clear Old Manual Claims
+            </button>
           </div>
         </div>
 
@@ -151,4 +171,3 @@ export default function Admin() {
     </div>
   );
 }
-
