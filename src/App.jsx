@@ -1,4 +1,4 @@
-mport { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Admin from './pages/Admin';
 import { 
   getRandomApprovedClaims, 
