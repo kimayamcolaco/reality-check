@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+mport { useState, useEffect } from 'react';
 import Admin from './pages/Admin';
 import { 
   getRandomApprovedClaims, 
   incrementClaimShown,
-  saveUserAnswer 
+  saveUserAnswer,
+  reportClaim
 } from './lib/supabase';
 
 // Generate session ID
@@ -58,6 +59,11 @@ function Game() {
     const currentClaim = claims[currentIndex];
     await incrementClaimShown(currentClaim.id);
     await saveUserAnswer(sessionId, currentClaim.id, claimType, correct);
+  }
+
+  async function handleReportClaim(claimId) {
+    await reportClaim(claimId);
+    alert('Thanks! This claim has been reported and will be reviewed.');
   }
 
   async function nextClaim() {
@@ -221,9 +227,16 @@ function Game() {
 
           <button
             onClick={nextClaim}
-            className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
+            className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg mb-3"
           >
             Next Question →
+          </button>
+          
+          <button
+            onClick={() => handleReportClaim(currentClaim.id)}
+            className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm"
+          >
+            Report This Claim
           </button>
         </div>
       )}
@@ -241,3 +254,4 @@ export default function App() {
   
   return <Game />;
 }
+
