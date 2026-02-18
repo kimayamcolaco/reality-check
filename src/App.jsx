@@ -22,25 +22,9 @@ function Game() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [correct, setCorrect] = useState(0);
-  const [wrong, setWrong] = useState(0);
+  const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(getSessionId());
-
-  // Fun titles based on performance
-  function getTitle() {
-    const total = correct + wrong;
-    if (total === 0) return "News Detective 🔍";
-    
-    const accuracy = correct / total;
-    
-    if (accuracy >= 0.9) return "Truth Seeker 🎯";
-    if (accuracy >= 0.75) return "Reality Expert ⭐";
-    if (accuracy >= 0.6) return "Fact Checker ✓";
-    if (accuracy >= 0.5) return "News Reader 📰";
-    if (accuracy >= 0.3) return "Reality Checks Needed 🤔";
-    return "Fake News Victim 😅";
-  }
 
   useEffect(() => {
     loadClaims();
@@ -104,11 +88,11 @@ function Game() {
   }
 
   function getTitle(accuracy) {
-    if (accuracy >= 90) return { title: 'Reality Expert', emoji: '🏆', color: 'text-yellow-600' };
-    if (accuracy >= 75) return { title: 'Fake News Detective', emoji: '🕵️', color: 'text-green-600' };
-    if (accuracy >= 60) return { title: 'Pretty Up To Date', emoji: '📰', color: 'text-blue-600' };
-    if (accuracy >= 50) return { title: 'Amateur News Reader', emoji: '📖', color: 'text-gray-600' };
-    return { title: 'Might Need a Reality Check', emoji: '🤔', color: 'text-orange-600' };
+    if (accuracy >= 90) return { title: 'Reality Expert', color: 'text-yellow-600' };
+    if (accuracy >= 75) return { title: 'Fake News Detective',  color: 'text-green-600' };
+    if (accuracy >= 60) return { title: 'Pretty Up To Date', color: 'text-blue-600' };
+    if (accuracy >= 50) return { title: 'Amateur News Reader', color: 'text-gray-600' };
+    return { title: 'Might Need a Reality Check', color: 'text-orange-600' };
   }
 
   function resetGame() {
@@ -171,7 +155,7 @@ function Game() {
         </div>
         {totalAnswered > 0 && (
           <div className={`text-lg font-medium ${titleInfo.color}`}>
-            {titleInfo.emoji} {titleInfo.title} ({accuracy}%)
+            {titleInfo.title} ({accuracy}%)
           </div>
         )}
       </div>
@@ -272,7 +256,7 @@ function Game() {
             onClick={() => handleReportClaim(currentClaim.id)}
             className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm"
           >
-            👎 Report This Claim
+            Report This Claim
           </button>
         </div>
       )}
