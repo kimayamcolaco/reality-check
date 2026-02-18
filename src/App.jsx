@@ -46,12 +46,26 @@ function Game() {
 
   async function loadClaims() {
     try {
-      const randomClaims = await getRandomApprovedClaims(10);
+      const randomClaims = await getRandomApprovedClaims(50); // Get more to filter from
       
       if (randomClaims.length === 0) {
         setClaims([]);
       } else {
-        setClaims(randomClaims);
+        // Get seen claims from localStorage
+        const seenClaimsJSON = localStorage.getItem('reality_check_seen');
+        const seenClaims = seenClaimsJSON ? JSON.parse(seenClaimsJSON) : [];
+        
+        // Filter out claims already seen
+        const unseenClaims = randomClaims.filter(claim => !seenClaims.includes(claim.id));
+        
+        // If all claims have been seen, reset and show all
+        if (unseenClaims.length === 0) {
+          console.log('All claims seen! Resetting...');
+          localStorage.setItem('reality_check_seen', JSON.stringify([]));
+          setClaims(randomClaims.slice(0, 10));
+        } else {
+          setClaims(unseenClaims.slice(0, 10));
+        }
       }
       
       setLoading(false);
@@ -76,6 +90,14 @@ function Game() {
     const currentClaim = claims[currentIndex];
     await incrementClaimShown(currentClaim.id);
     await saveUserAnswer(sessionId, currentClaim.id, claimType, isCorrect);
+    
+    // Mark as seen in localStorage
+    const seenClaimsJSON = localStorage.getItem('reality_check_seen');
+    const seenClaims = seenClaimsJSON ? JSON.parse(seenClaimsJSON) : [];
+    if (!seenClaims.includes(currentClaim.id)) {
+      seenClaims.push(currentClaim.id);
+      localStorage.setItem('reality_check_seen', JSON.stringify(seenClaims));
+    }
   }
 
   async function handleReportClaim(claimId) {
@@ -153,6 +175,11 @@ function Game() {
   const isCorrect = selectedClaim === 'true';
   const accuracy = totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
   const titleInfo = getTitle(accuracy);
+  
+  // Randomize which side shows true vs false (consistent per claim)
+  const showTrueOnLeft = currentClaim.id ? 
+    (parseInt(currentClaim.id.split('-')[0], 16) % 2 === 0) : 
+    (currentIndex % 2 === 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
@@ -184,46 +211,50 @@ function Game() {
 
       {/* Cards Container */}
       <div className="w-full max-w-4xl grid md:grid-cols-2 gap-6 mb-8">
-        {/* Card 1 - True Claim (ALWAYS GREEN) */}
+        {/* Card 1 - Left Side */}
         <button
-          onClick={() => !showFeedback && handleSelectClaim('true')}
+          onClick={() => !showFeedback && handleSelectClaim(showTrueOnLeft ? 'true' : 'false')}
           disabled={showFeedback}
           className={`group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 min-h-[200px] border-4 ${
             !showFeedback 
               ? 'border-transparent hover:scale-105 cursor-pointer' 
-              : 'cursor-default border-green-400 bg-green-50'
+              : showTrueOnLeft
+                ? 'cursor-default border-green-400 bg-green-50'
+                : 'cursor-default border-red-400 bg-red-50'
           }`}
         >
           {showFeedback && (
             <div className="absolute top-4 right-4 text-3xl">
-              ✓
+              {showTrueOnLeft ? '✓' : '✗'}
             </div>
           )}
           <div className="flex flex-col h-full justify-center items-center text-center">
             <p className="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed">
-              {currentClaim.true_claim}
+              {showTrueOnLeft ? currentClaim.true_claim : currentClaim.false_claim}
             </p>
           </div>
         </button>
 
-        {/* Card 2 - False Claim (ALWAYS RED) */}
+        {/* Card 2 - Right Side */}
         <button
-          onClick={() => !showFeedback && handleSelectClaim('false')}
+          onClick={() => !showFeedback && handleSelectClaim(showTrueOnLeft ? 'false' : 'true')}
           disabled={showFeedback}
           className={`group relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 min-h-[200px] border-4 ${
             !showFeedback 
               ? 'border-transparent hover:scale-105 cursor-pointer' 
-              : 'cursor-default border-red-400 bg-red-50'
+              : showTrueOnLeft
+                ? 'cursor-default border-red-400 bg-red-50'
+                : 'cursor-default border-green-400 bg-green-50'
           }`}
         >
           {showFeedback && (
             <div className="absolute top-4 right-4 text-3xl">
-              ✗
+              {showTrueOnLeft ? '✗' : '✓'}
             </div>
           )}
           <div className="flex flex-col h-full justify-center items-center text-center">
             <p className="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed">
-              {currentClaim.false_claim}
+              {showTrueOnLeft ? currentClaim.false_claim : currentClaim.true_claim}
             </p>
           </div>
         </button>
