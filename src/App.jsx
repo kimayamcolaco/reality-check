@@ -27,6 +27,49 @@ function Game() {
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(getSessionId());
 
+  // Load today's progress from localStorage
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0]; // "2026-02-19"
+    const savedData = localStorage.getItem('reality_check_daily_progress');
+    
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      
+      // Check if it's from today
+      if (parsed.date === today) {
+        // Restore today's progress
+        setScore(parsed.score || 0);
+        setTotalAnswered(parsed.totalAnswered || 0);
+        console.log('📊 Restored today\'s progress:', parsed);
+      } else {
+        // It's a new day - reset!
+        console.log('🌅 New day! Resetting progress');
+        localStorage.setItem('reality_check_daily_progress', JSON.stringify({
+          date: today,
+          score: 0,
+          totalAnswered: 0
+        }));
+      }
+    } else {
+      // First time today
+      localStorage.setItem('reality_check_daily_progress', JSON.stringify({
+        date: today,
+        score: 0,
+        totalAnswered: 0
+      }));
+    }
+  }, []);
+
+  // Save progress whenever score or totalAnswered changes
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem('reality_check_daily_progress', JSON.stringify({
+      date: today,
+      score,
+      totalAnswered
+    }));
+  }, [score, totalAnswered]);
+
   // Fun titles based on score
   const getFunTitle = () => {
     const percentage = totalAnswered > 0 ? (score / totalAnswered) * 100 : 0;
@@ -55,15 +98,21 @@ function Game() {
         const seenClaimsJSON = localStorage.getItem('reality_check_seen');
         const seenClaims = seenClaimsJSON ? JSON.parse(seenClaimsJSON) : [];
         
+        console.log('📊 Total claims fetched:', randomClaims.length);
+        console.log('👀 Already seen:', seenClaims.length);
+        
         // Filter out claims already seen
         const unseenClaims = randomClaims.filter(claim => !seenClaims.includes(claim.id));
         
+        console.log('✨ Unseen claims available:', unseenClaims.length);
+        
         // If all claims have been seen, reset and show all
         if (unseenClaims.length === 0) {
-          console.log('All claims seen! Resetting...');
+          console.log('🔄 All claims seen! Resetting...');
           localStorage.setItem('reality_check_seen', JSON.stringify([]));
           setClaims(randomClaims.slice(0, 10));
         } else {
+          console.log('🎯 Showing', Math.min(10, unseenClaims.length), 'unseen claims');
           setClaims(unseenClaims.slice(0, 10));
         }
       }
@@ -97,6 +146,7 @@ function Game() {
     if (!seenClaims.includes(currentClaim.id)) {
       seenClaims.push(currentClaim.id);
       localStorage.setItem('reality_check_seen', JSON.stringify(seenClaims));
+      console.log('✅ Marked as seen. Total seen:', seenClaims.length);
     }
   }
 
