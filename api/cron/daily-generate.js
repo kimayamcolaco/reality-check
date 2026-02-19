@@ -160,6 +160,33 @@ Respond with ONLY valid JSON:
     // VALIDATION: Reject garbage claims
     const trueClaim = parsed.true_claim || '';
     const falseClaim = parsed.false_claim || '';
+    const explanation = parsed.explanation || '';
+    
+    // Reject if explanation mentions AI reasoning (very strict check)
+    const badExplanationPhrases = [
+      'key part',
+      'false claim',
+      'i changed',
+      'changing this',
+      'alters the',
+      'making it plausible',
+      'plausible but incorrect',
+      'plausible but wrong',
+      'meaningful change',
+      'meaningful part',
+      'this creates',
+      'this makes',
+      'opposite outcome'
+    ];
+    
+    const hasBadExplanation = badExplanationPhrases.some(phrase => 
+      explanation.toLowerCase().includes(phrase)
+    );
+    
+    if (hasBadExplanation) {
+      console.log('  ⚠️ Bad explanation detected (mentions AI reasoning), skipping');
+      return null;
+    }
     
     // Reject if claim is just categories/tags
     const badPatterns = [
