@@ -85,20 +85,25 @@ IMPORTANT RULES:
 3. Change THE KEY PART - the most newsworthy detail
 4. Both true and false versions should sound like real news
 
-EXPLANATION FORMAT:
-The explanation should provide NEWS CONTEXT and additional information from the source, NOT explain how you generated the false claim.
+CRITICAL - EXPLANATION FORMAT:
+Write 2-3 sentences providing NEWS CONTEXT about the actual story. DO NOT mention "key part", "false claim", "I changed", or anything about how you generated the claims.
 
-GOOD explanations (provide context):
-✅ "According to BBC News, the avalanche occurred in the Sierra Nevada mountains near Lake Tahoe on February 18th. Search and rescue teams recovered all seven bodies by evening."
-✅ "OpenAI announced the partnership would focus on integrating advanced AI models into Microsoft's cloud services, with the deal valued at over $10 billion."
-✅ "Tesla's earnings report showed record vehicle deliveries in Q4, beating analyst expectations and driving the stock surge."
+Just tell the reader MORE ABOUT THE NEWS.
 
-BAD explanations (don't do this):
-❌ "The key part is the location (California), so I changed it to Colorado to create a false claim."
-❌ "I changed FP64 to FP32 because that's a plausible alternative."
-❌ Any explanation about HOW you generated the claim
+GOOD explanations (just news context):
+✅ "The avalanche occurred in the Sierra Nevada mountains near Lake Tahoe on February 18th. Search and rescue teams worked through the night in dangerous conditions. All seven victims were part of a backcountry skiing group."
 
-Write explanations that educate the reader about the actual news story.
+✅ "The partnership will integrate OpenAI's latest GPT models into Microsoft Azure cloud services. The deal is valued at over $10 billion and extends their existing collaboration. Microsoft will provide computing infrastructure for training future AI models."
+
+✅ "Tesla reported record deliveries of 485,000 vehicles in Q4, beating analyst expectations by 12%. The strong performance was driven by increased production at their Shanghai factory. CEO Elon Musk said 2026 would be a 'breakthrough year' for the company."
+
+BAD explanations (NEVER do this):
+❌ "The key part of the story is the location (California), so the false claim changes it to Colorado."
+❌ "I changed the technology from AI to renewable energy to make it plausible but wrong."
+❌ "According to the source, the important detail is X, which I modified to Y."
+❌ ANY mention of "key part", "false claim", "changed", "modified", or your generation process
+
+Your explanation = MORE NEWS DETAILS. That's it.
 
 GOOD claim examples:
 ✅ "Seven skiers were found dead after an avalanche in California"
