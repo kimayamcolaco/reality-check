@@ -74,9 +74,27 @@ async function callGroq(prompt) {
 }
 
 async function generateClaim(title, source, learningGuidance = '') {
-  const prompt = `Based on this headline: "${title}"
+  const prompt = `You are creating a NEWS TRIVIA GAME claim from this headline: "${title}"
 
-Create a true/false claim pair that reads like a CLEAR NEWS STATEMENT someone would say out loud.
+A CLAIM is a factual statement about something that happened in the news. It must be a complete sentence about a specific event, announcement, or development.
+
+EXAMPLES OF GOOD CLAIMS:
+✅ "Apple announced a new iPhone model with a 48-megapixel camera at their September event"
+✅ "The Federal Reserve raised interest rates by 0.25% to combat inflation"
+✅ "Seven skiers were found dead after an avalanche in the Sierra Nevada mountains"
+✅ "Tesla's stock price increased by 15% following their quarterly earnings report"
+
+EXAMPLES OF BAD CLAIMS (NEVER create these):
+❌ "NPR Topics: Entertainment" (this is just a category, not news)
+❌ "TechCrunch reports on technology" (too vague, not specific)
+❌ "Breaking news from Reuters" (no actual information)
+❌ "15 years of FP32 segmentation" (confusing jargon)
+
+Your claim must:
+- Be a COMPLETE SENTENCE about a SPECIFIC event
+- Include WHO, WHAT, or WHERE details
+- Be something someone could fact-check
+- Sound like something you'd read in a news article
 ${learningGuidance}
 
 IMPORTANT RULES:
@@ -86,24 +104,30 @@ IMPORTANT RULES:
 4. Both true and false versions should sound like real news
 
 CRITICAL - EXPLANATION FORMAT:
-Write 2-3 sentences providing NEWS CONTEXT about the actual story. DO NOT mention "key part", "false claim", "I changed", or anything about how you generated the claims.
+You are a NEWS REPORTER, not an AI explaining your process.
 
-Just tell the reader MORE ABOUT THE NEWS.
+Write ONLY what a journalist would write to give context about the story. Pretend you're writing for a news website.
 
-GOOD explanations (just news context):
-✅ "The avalanche occurred in the Sierra Nevada mountains near Lake Tahoe on February 18th. Search and rescue teams worked through the night in dangerous conditions. All seven victims were part of a backcountry skiing group."
+Format: 2-3 sentences about WHAT HAPPENED, WHO was involved, WHEN/WHERE it occurred, and WHY it matters.
 
-✅ "The partnership will integrate OpenAI's latest GPT models into Microsoft Azure cloud services. The deal is valued at over $10 billion and extends their existing collaboration. Microsoft will provide computing infrastructure for training future AI models."
+PERFECT explanation examples (copy this style exactly):
+✅ "The match took place at the Olympic Stadium in front of 15,000 spectators. The winning team will advance to face defending champions Brazil in the gold medal match on Saturday. This marks the first time the country has reached an Olympic final in this sport."
 
-✅ "Tesla reported record deliveries of 485,000 vehicles in Q4, beating analyst expectations by 12%. The strong performance was driven by increased production at their Shanghai factory. CEO Elon Musk said 2026 would be a 'breakthrough year' for the company."
+✅ "The company's stock jumped 23% in after-hours trading following the announcement. CEO John Smith said the new product would launch in Q3 and target enterprise customers. Analysts estimate it could generate $500 million in annual revenue."
 
-BAD explanations (NEVER do this):
-❌ "The key part of the story is the location (California), so the false claim changes it to Colorado."
-❌ "I changed the technology from AI to renewable energy to make it plausible but wrong."
-❌ "According to the source, the important detail is X, which I modified to Y."
-❌ ANY mention of "key part", "false claim", "changed", "modified", or your generation process
+✅ "Rescue operations began at 6am and continued for eight hours in treacherous conditions. Local authorities have closed the ski area indefinitely while they investigate the cause. This is the deadliest avalanche in California in over a decade."
 
-Your explanation = MORE NEWS DETAILS. That's it.
+ABSOLUTELY FORBIDDEN (if you write any of these phrases, you FAILED):
+❌ "The key part"
+❌ "false claim"  
+❌ "I changed"
+❌ "makes it plausible"
+❌ "meaningful change"
+❌ "opposite outcome"
+❌ "this creates"
+❌ ANY mention of how you created the false version
+
+THINK: What would CNN write? What would a reporter say? Write THAT.
 
 GOOD claim examples:
 ✅ "Seven skiers were found dead after an avalanche in California"
@@ -132,6 +156,37 @@ Respond with ONLY valid JSON:
     if (!jsonMatch) return null;
     
     const parsed = JSON.parse(jsonMatch[0]);
+    
+    // VALIDATION: Reject garbage claims
+    const trueClaim = parsed.true_claim || '';
+    const falseClaim = parsed.false_claim || '';
+    
+    // Reject if claim is just categories/tags
+    const badPatterns = [
+      /topics:/i,
+      /breaking news/i,
+      /reports on/i,
+      /announces that/i,
+      /years of.*segmentation/i,
+      /^[A-Z\s]+:/, // "NPR Topics:" format
+    ];
+    
+    const isBadClaim = badPatterns.some(pattern => 
+      pattern.test(trueClaim) || pattern.test(falseClaim)
+    );
+    
+    // Reject if too short (less than 50 chars)
+    if (trueClaim.length < 50 || falseClaim.length < 50) {
+      console.log('  ⚠️ Claim too short, skipping');
+      return null;
+    }
+    
+    // Reject if contains bad patterns
+    if (isBadClaim) {
+      console.log('  ⚠️ Bad claim pattern detected, skipping');
+      return null;
+    }
+    
     return {
       true_claim: parsed.true_claim,
       false_claim: parsed.false_claim,
