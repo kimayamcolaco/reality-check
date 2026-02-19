@@ -20,10 +20,14 @@ async function fetchRSS(url, sourceName) {
     console.log(`📰 Fetching ${sourceName}...`);
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
     
     const response = await fetch(proxyUrl, { signal: controller.signal });
     clearTimeout(timeout);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
     
     const text = await response.text();
     const titleMatches = text.match(/<title>(.*?)<\/title>/g) || [];
@@ -34,7 +38,7 @@ async function fetchRSS(url, sourceName) {
       if (title && title.length > 20) { // Skip empty/short titles
         articles.push({
           title,
-          content: title, // Use title as content for simplicity
+          content: title,
           source: sourceName,
           published_date: new Date().toISOString().split('T')[0]
         });
@@ -97,12 +101,19 @@ export default async function handler(req, res) {
 
     console.log('✅ Clients initialized');
 
-    // Fetch articles from all sources
+    // Fetch articles from all sources IN PARALLEL (faster)
+    console.log('📡 Fetching from all sources in parallel...');
+    const fetchPromises = SOURCES.map(source => fetchRSS(source.url, source.name));
+    const results = await Promise.allSettled(fetchPromises);
+    
     const allArticles = [];
-    for (const source of SOURCES) {
-      const articles = await fetchRSS(source.url, source.name);
-      allArticles.push(...articles);
-    }
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        allArticles.push(...result.value);
+      } else {
+        console.error(`⚠️ ${SOURCES[index].name} completely failed`);
+      }
+    });
 
     console.log(`📊 Total articles fetched: ${allArticles.length}`);
 
