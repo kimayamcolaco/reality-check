@@ -1,29 +1,23 @@
 // api/cron/daily-generate.js
-// Full version with RSS + AI claim generation
+// Simplified sequential fetching
 
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 
 const SOURCES = [
-  { name: "Lenny's Newsletter", url: 'https://www.lennysnewsletter.com/feed' },
-  { name: "Pivot Podcast", url: 'https://feeds.megaphone.fm/pivot' },
-  { name: "Morning Brew Daily", url: 'https://feeds.simplecast.com/76rUd4I6' },
-  { name: "BBC World News", url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
-  { name: "Up First by NPR", url: 'https://feeds.npr.org/510318/podcast.xml' },
+  { name: "TechCrunch", url: 'https://techcrunch.com/feed/' },
   { name: "Reuters", url: 'https://feeds.reuters.com/reuters/topNews' },
-  { name: "New York Times", url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml' },
-  { name: "TechCrunch", url: 'https://techcrunch.com/feed/' }
+  { name: "BBC World News", url: 'https://feeds.bbci.co.uk/news/world/rss.xml' }
 ];
 
 async function fetchRSS(url, sourceName) {
   try {
     console.log(`📰 Fetching ${sourceName}...`);
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
     
-    const response = await fetch(proxyUrl, { signal: controller.signal });
-    clearTimeout(timeout);
+    // Direct fetch without proxy - try simple first
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -33,38 +27,37 @@ async function fetchRSS(url, sourceName) {
     const titleMatches = text.match(/<title>(.*?)<\/title>/g) || [];
     
     const articles = [];
-    for (let i = 1; i < Math.min(4, titleMatches.length); i++) { // Get 3 per source
+    for (let i = 1; i < Math.min(5, titleMatches.length); i++) {
       const title = titleMatches[i]?.replace(/<\/?title>/g, '').replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim();
-      if (title && title.length > 20) { // Skip empty/short titles
+      if (title && title.length > 15) {
         articles.push({
           title,
-          content: title,
           source: sourceName,
           published_date: new Date().toISOString().split('T')[0]
         });
       }
     }
     
-    console.log(`  ✅ Got ${articles.length} articles from ${sourceName}`);
+    console.log(`  ✅ ${sourceName}: ${articles.length} articles`);
     return articles;
   } catch (error) {
-    console.error(`  ❌ ${sourceName} failed:`, error.message);
+    console.error(`  ❌ ${sourceName}: ${error.message}`);
     return [];
   }
 }
 
-async function generateClaimFromTitle(title, source, anthropic) {
-  try {
-    const prompt = `Create a true/false claim pair from this headline: "${title}"
+async function generateClaim(title, source, anthropic) {
+  const prompt = `Based on this headline: "${title}"
 
-Generate a plausible fact-based claim and a slightly modified false version.
+Create a realistic true/false claim pair. Change ONE specific detail (number, name, or date).
 
-Respond ONLY with JSON:
+JSON only:
 {"true_claim": "...", "false_claim": "...", "explanation": "..."}`;
 
+  try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 500,
+      max_tokens: 400,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -74,20 +67,18 @@ Respond ONLY with JSON:
     
     const parsed = JSON.parse(jsonMatch[0]);
     return {
-      true_claim: parsed.true_claim,
-      false_claim: parsed.false_claim,
-      explanation: parsed.explanation,
+      ...parsed,
       source,
       date: new Date().toISOString().split('T')[0]
     };
   } catch (error) {
-    console.error(`  ❌ AI generation failed:`, error.message);
+    console.error(`  ❌ AI failed:`, error.message);
     return null;
   }
 }
 
 export default async function handler(req, res) {
-  console.log('🤖 Daily claim generation started...');
+  console.log('🤖 Starting daily generation...');
   
   try {
     const supabase = createClient(
@@ -99,93 +90,47 @@ export default async function handler(req, res) {
       apiKey: process.env.VITE_ANTHROPIC_API_KEY
     });
 
-    console.log('✅ Clients initialized');
-
-    // Fetch articles from all sources IN PARALLEL (faster)
-    console.log('📡 Fetching from all sources in parallel...');
-    const fetchPromises = SOURCES.map(source => fetchRSS(source.url, source.name));
-    const results = await Promise.allSettled(fetchPromises);
-    
+    // Fetch articles sequentially
     const allArticles = [];
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        allArticles.push(...result.value);
-      } else {
-        console.error(`⚠️ ${SOURCES[index].name} completely failed`);
-      }
-    });
+    for (const source of SOURCES) {
+      const articles = await fetchRSS(source.url, source.name);
+      allArticles.push(...articles);
+      await new Promise(r => setTimeout(r, 500)); // Brief pause between sources
+    }
 
-    console.log(`📊 Total articles fetched: ${allArticles.length}`);
+    console.log(`📊 Total: ${allArticles.length} articles`);
 
     if (allArticles.length === 0) {
-      console.log('⚠️ No articles found, using fallback');
-      // Fallback: create one test claim
-      const { data, error } = await supabase
-        .from('claim_pairs_approved')
-        .insert([{
-          true_claim: "No new articles available - test claim for " + new Date().toLocaleTimeString(),
-          false_claim: "New articles were found - test claim for " + new Date().toLocaleTimeString(),
-          explanation: "RSS feeds returned no content. This is a fallback test claim.",
-          source: "System",
-          date: new Date().toISOString().split('T')[0]
-        }]);
-      
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Fallback claim created',
-        articlesFound: 0
-      });
+      return res.status(200).json({ success: false, message: 'No articles fetched' });
     }
 
-    // Generate claims with AI - spread across different sources
+    // Generate claims
     const claims = [];
-    const processedTitles = new Set(); // Track to avoid duplicates
-    
-    for (const article of allArticles) {
-      if (claims.length >= 20) break; // Generate up to 20 claims with 8 sources
+    for (let i = 0; i < Math.min(15, allArticles.length); i++) {
+      const article = allArticles[i];
+      console.log(`🤖 Claim ${i+1}: "${article.title.substring(0, 50)}..."`);
       
-      // Skip if we've seen this exact title
-      if (processedTitles.has(article.title)) continue;
-      processedTitles.add(article.title);
-      
-      console.log(`🤖 Generating claim from: "${article.title.substring(0, 60)}..."`);
-      const claim = await generateClaimFromTitle(article.title, article.source, anthropic);
-      
-      if (claim) {
-        // Check if this claim is unique
-        const isDuplicate = claims.some(c => 
-          c.true_claim === claim.true_claim || 
-          c.false_claim === claim.false_claim
-        );
-        
-        if (!isDuplicate) {
-          claims.push(claim);
-          console.log(`  ✅ Claim ${claims.length} generated`);
-        } else {
-          console.log(`  ⚠️ Duplicate claim, skipping`);
-        }
+      const claim = await generateClaim(article.title, article.source, anthropic);
+      if (claim && !claims.some(c => c.true_claim === claim.true_claim)) {
+        claims.push(claim);
       }
-      
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    console.log(`✨ Generated ${claims.length} claims`);
+    console.log(`✨ Generated ${claims.length} unique claims`);
 
     if (claims.length > 0) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('claim_pairs_approved')
         .insert(claims);
 
       if (error) throw error;
-      console.log('✅ Claims saved to database');
+      console.log('✅ Saved to database');
     }
 
     return res.status(200).json({
       success: true,
-      articlesProcessed: allArticles.length,
-      claimsGenerated: claims.length,
-      timestamp: new Date().toISOString()
+      articles: allArticles.length,
+      claims: claims.length
     });
 
   } catch (error) {
