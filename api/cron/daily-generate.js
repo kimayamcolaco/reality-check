@@ -1,8 +1,10 @@
 // api/cron/daily-generate.js
-// Using Groq for fast, free AI generation
+// Using Groq with fetch API (no SDK needed)
 
 import { createClient } from '@supabase/supabase-js';
-import Groq from 'groq-sdk';
+
+const GROQ_API_KEY = process.env.VITE_GROQ_API_KEY;
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const SOURCES = [
   { name: "TechCrunch", url: 'https://techcrunch.com/feed/' },
@@ -26,7 +28,11 @@ async function fetchRSS(url, sourceName) {
     for (let i = 1; i < Math.min(5, titleMatches.length); i++) {
       const title = titleMatches[i]?.replace(/<\/?title>/g, '').replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim();
       if (title && title.length > 15) {
-        articles.push({ title, source: sourceName, published_date: new Date().toISOString().split('T')[0] });
+        articles.push({ 
+          title, 
+          source: sourceName, 
+          published_date: new Date().toISOString().split('T')[0] 
+        });
       }
     }
     
@@ -38,51 +44,71 @@ async function fetchRSS(url, sourceName) {
   }
 }
 
-async function generateClaim(title, source, groq) {
+async function callGroq(prompt) {
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 400
+      })
+    });
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Groq API error:', error);
+    throw error;
+  }
+}
+
+async function generateClaim(title, source) {
   const prompt = `Based on this headline: "${title}"
 
 Create a realistic true/false claim pair. Change ONE specific detail (number, name, or date).
 
-JSON only:
+Respond with ONLY valid JSON:
 {"true_claim": "...", "false_claim": "...", "explanation": "..."}`;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 400
-    });
-
-    const text = completion.choices[0]?.message?.content || '';
+    const text = await callGroq(prompt);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
     
     const parsed = JSON.parse(jsonMatch[0]);
     return {
-      ...parsed,
+      true_claim: parsed.true_claim,
+      false_claim: parsed.false_claim,
+      explanation: parsed.explanation,
       source,
       date: new Date().toISOString().split('T')[0]
     };
   } catch (error) {
-    console.error(`  ❌ Groq failed:`, error.message);
+    console.error(`  ❌ Claim generation failed:`, error.message);
     return null;
   }
 }
 
 export default async function handler(req, res) {
-  console.log('🤖 Starting daily generation with Groq...');
+  console.log('🤖 Starting daily generation with Groq (fetch API)...');
   
   try {
+    if (!GROQ_API_KEY) {
+      throw new Error('VITE_GROQ_API_KEY not found in environment variables');
+    }
+
     const supabase = createClient(
       process.env.VITE_SUPABASE_URL,
       process.env.VITE_SUPABASE_ANON_KEY
     );
-    
-    const groq = new Groq({
-      apiKey: process.env.VITE_GROQ_API_KEY
-    });
 
+    // Fetch articles sequentially
     const allArticles = [];
     for (const source of SOURCES) {
       const articles = await fetchRSS(source.url, source.name);
@@ -93,18 +119,42 @@ export default async function handler(req, res) {
     console.log(`📊 Total: ${allArticles.length} articles`);
 
     if (allArticles.length === 0) {
-      return res.status(200).json({ success: false, message: 'No articles fetched' });
+      return res.status(200).json({ 
+        success: false, 
+        message: 'No articles fetched from RSS feeds' 
+      });
     }
 
+    // Generate claims
     const claims = [];
+    const processedTitles = new Set();
+    
     for (let i = 0; i < Math.min(15, allArticles.length); i++) {
       const article = allArticles[i];
-      console.log(`🤖 Claim ${i+1}: "${article.title.substring(0, 50)}..."`);
       
-      const claim = await generateClaim(article.title, article.source, groq);
-      if (claim && !claims.some(c => c.true_claim === claim.true_claim)) {
-        claims.push(claim);
+      // Skip duplicates
+      if (processedTitles.has(article.title)) continue;
+      processedTitles.add(article.title);
+      
+      console.log(`🤖 Claim ${claims.length + 1}: "${article.title.substring(0, 50)}..."`);
+      
+      const claim = await generateClaim(article.title, article.source);
+      
+      if (claim) {
+        // Check for duplicate claims
+        const isDuplicate = claims.some(c => 
+          c.true_claim === claim.true_claim || 
+          c.false_claim === claim.false_claim
+        );
+        
+        if (!isDuplicate) {
+          claims.push(claim);
+          console.log(`  ✅ Unique claim generated`);
+        }
       }
+      
+      // Small delay between AI calls
+      await new Promise(r => setTimeout(r, 300));
     }
 
     console.log(`✨ Generated ${claims.length} unique claims with Groq`);
@@ -121,11 +171,15 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       articles: allArticles.length,
-      claims: claims.length
+      claims: claims.length,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
-    return res.status(500).json({ error: error.message });
+    console.error('❌ Fatal error:', error.message);
+    return res.status(500).json({ 
+      error: error.message,
+      stack: error.stack 
+    });
   }
 }
