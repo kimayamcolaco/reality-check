@@ -105,7 +105,7 @@ Respond with a JSON array of ${articles.length} objects.`;
         'content-type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022', // Fast & cheap
+        model: 'claude-sonnet-4-20250514', // Claude Sonnet 4 (latest)
         max_tokens: 4000,
         system: [
           {
