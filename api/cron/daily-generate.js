@@ -5,9 +5,14 @@ import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 
 const SOURCES = [
-  { name: "TechCrunch", url: 'https://techcrunch.com/feed/' },
+  { name: "Lenny's Newsletter", url: 'https://www.lennysnewsletter.com/feed' },
+  { name: "Pivot Podcast", url: 'https://feeds.megaphone.fm/pivot' },
+  { name: "Morning Brew Daily", url: 'https://feeds.simplecast.com/76rUd4I6' },
+  { name: "BBC World News", url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+  { name: "Up First by NPR", url: 'https://feeds.npr.org/510318/podcast.xml' },
   { name: "Reuters", url: 'https://feeds.reuters.com/reuters/topNews' },
-  { name: "BBC World News", url: 'https://feeds.bbci.co.uk/news/world/rss.xml' }
+  { name: "New York Times", url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml' },
+  { name: "TechCrunch", url: 'https://techcrunch.com/feed/' }
 ];
 
 async function fetchRSS(url, sourceName) {
@@ -24,7 +29,7 @@ async function fetchRSS(url, sourceName) {
     const titleMatches = text.match(/<title>(.*?)<\/title>/g) || [];
     
     const articles = [];
-    for (let i = 1; i < Math.min(3, titleMatches.length); i++) { // Get 2 per source
+    for (let i = 1; i < Math.min(4, titleMatches.length); i++) { // Get 3 per source
       const title = titleMatches[i]?.replace(/<\/?title>/g, '').replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').trim();
       if (title && title.length > 20) { // Skip empty/short titles
         articles.push({
@@ -121,14 +126,37 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate claims with AI
+    // Generate claims with AI - spread across different sources
     const claims = [];
-    for (const article of allArticles.slice(0, 5)) { // Limit to 5 to avoid timeout
-      console.log(`🤖 Generating claim from: "${article.title.substring(0, 50)}..."`);
+    const processedTitles = new Set(); // Track to avoid duplicates
+    
+    for (const article of allArticles) {
+      if (claims.length >= 20) break; // Generate up to 20 claims with 8 sources
+      
+      // Skip if we've seen this exact title
+      if (processedTitles.has(article.title)) continue;
+      processedTitles.add(article.title);
+      
+      console.log(`🤖 Generating claim from: "${article.title.substring(0, 60)}..."`);
       const claim = await generateClaimFromTitle(article.title, article.source, anthropic);
+      
       if (claim) {
-        claims.push(claim);
+        // Check if this claim is unique
+        const isDuplicate = claims.some(c => 
+          c.true_claim === claim.true_claim || 
+          c.false_claim === claim.false_claim
+        );
+        
+        if (!isDuplicate) {
+          claims.push(claim);
+          console.log(`  ✅ Claim ${claims.length} generated`);
+        } else {
+          console.log(`  ⚠️ Duplicate claim, skipping`);
+        }
       }
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     console.log(`✨ Generated ${claims.length} claims`);
