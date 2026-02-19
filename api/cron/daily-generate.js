@@ -73,16 +73,32 @@ async function callGroq(prompt) {
   }
 }
 
-async function generateClaim(title, source) {
+async function generateClaim(title, source, learningGuidance = '') {
   const prompt = `Based on this headline: "${title}"
 
 Create a true/false claim pair that reads like a CLEAR NEWS STATEMENT someone would say out loud.
+${learningGuidance}
 
 IMPORTANT RULES:
 1. Write as a complete, clear sentence (not a headline fragment)
 2. Make it informative - tell the reader what happened
 3. Change THE KEY PART - the most newsworthy detail
 4. Both true and false versions should sound like real news
+
+EXPLANATION FORMAT:
+The explanation should provide NEWS CONTEXT and additional information from the source, NOT explain how you generated the false claim.
+
+GOOD explanations (provide context):
+✅ "According to BBC News, the avalanche occurred in the Sierra Nevada mountains near Lake Tahoe on February 18th. Search and rescue teams recovered all seven bodies by evening."
+✅ "OpenAI announced the partnership would focus on integrating advanced AI models into Microsoft's cloud services, with the deal valued at over $10 billion."
+✅ "Tesla's earnings report showed record vehicle deliveries in Q4, beating analyst expectations and driving the stock surge."
+
+BAD explanations (don't do this):
+❌ "The key part is the location (California), so I changed it to Colorado to create a false claim."
+❌ "I changed FP64 to FP32 because that's a plausible alternative."
+❌ Any explanation about HOW you generated the claim
+
+Write explanations that educate the reader about the actual news story.
 
 GOOD claim examples:
 ✅ "Seven skiers were found dead after an avalanche in California"
@@ -137,6 +153,34 @@ export default async function handler(req, res) {
       process.env.VITE_SUPABASE_ANON_KEY
     );
 
+    // Get reported claims for ML learning
+    console.log('🧠 Checking for reported claims to learn from...');
+    const { data: reportedClaims } = await supabase
+      .from('claim_pairs_approved')
+      .select('true_claim, false_claim, times_reported')
+      .gt('times_reported', 0)
+      .order('times_reported', { ascending: false })
+      .limit(5);
+
+    let learningGuidance = '';
+    if (reportedClaims && reportedClaims.length > 0) {
+      console.log(`📚 Learning from ${reportedClaims.length} reported claims`);
+      learningGuidance = `
+
+⚠️ IMPORTANT - Users reported these claims as BAD. DO NOT generate similar claims:
+
+${reportedClaims.map((c, i) => `
+BAD EXAMPLE ${i + 1} (Reported ${c.times_reported}x):
+TRUE: "${c.true_claim}"
+FALSE: "${c.false_claim}"
+Problem: Too confusing, boring, or obvious. Avoid this pattern.
+`).join('\n')}
+
+Learn from these mistakes and generate BETTER claims.`;
+    } else {
+      console.log('✨ No reported claims - generating fresh');
+    }
+
     // Fetch articles sequentially
     const allArticles = [];
     for (const source of SOURCES) {
@@ -167,7 +211,7 @@ export default async function handler(req, res) {
       
       console.log(`🤖 Claim ${claims.length + 1}: "${article.title.substring(0, 50)}..."`);
       
-      const claim = await generateClaim(article.title, article.source);
+      const claim = await generateClaim(article.title, article.source, learningGuidance);
       
       if (claim) {
         // Check for duplicate claims
