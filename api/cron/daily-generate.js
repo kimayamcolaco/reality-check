@@ -121,6 +121,18 @@ Respond with a JSON array of ${articles.length} objects.`;
     });
 
     const data = await response.json();
+    
+    // Check for errors
+    if (data.error) {
+      console.error('Claude API error:', data.error);
+      return [];
+    }
+    
+    if (!data.content || !data.content[0]) {
+      console.error('Unexpected response format:', JSON.stringify(data).substring(0, 200));
+      return [];
+    }
+    
     const text = data.content[0].text;
     
     // Extract JSON array
