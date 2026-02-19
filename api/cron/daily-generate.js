@@ -8,8 +8,13 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const SOURCES = [
   { name: "TechCrunch", url: 'https://techcrunch.com/feed/' },
+  { name: "BBC World News", url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+  { name: "New York Times", url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml' },
   { name: "Reuters", url: 'https://feeds.reuters.com/reuters/topNews' },
-  { name: "BBC World News", url: 'https://feeds.bbci.co.uk/news/world/rss.xml' }
+  { name: "NPR News", url: 'https://feeds.npr.org/1001/rss.xml' },
+  { name: "The Guardian", url: 'https://www.theguardian.com/world/rss' },
+  { name: "Associated Press", url: 'https://rsshub.app/apnews/topics/apf-topnews' },
+  { name: "Hacker News", url: 'https://hnrss.org/frontpage' }
 ];
 
 async function fetchRSS(url, sourceName) {
@@ -71,7 +76,21 @@ async function callGroq(prompt) {
 async function generateClaim(title, source) {
   const prompt = `Based on this headline: "${title}"
 
-Create a realistic true/false claim pair. Change ONE specific detail (number, name, or date).
+Create a true/false claim pair where the FALSE version changes THE KEY PART - the most important detail.
+
+RULE: Identify what makes this story newsworthy, then change THAT.
+
+Examples:
+- "Seven skiers dead in California avalanche" → Key part is LOCATION → "Seven skiers dead in Colorado avalanche"
+- "OpenAI partners with Microsoft" → Key part is COMPANY → "OpenAI partners with Google"  
+- "Tesla stock rises 15%" → Key part is DIRECTION → "Tesla stock falls 15%"
+- "President visits France" → Key part is COUNTRY → "President visits Germany"
+- "Company announces layoffs in Q3" → Key part is QUARTER → "Company announces layoffs in Q1"
+- "CEO resigns after scandal" → Key part is PERSON → "CFO resigns after scandal"
+
+DO NOT change trivial numbers (7→8 people, $100M→$110M). Change the MEANINGFUL part.
+
+The false claim should be plausible but wrong about what actually happened.
 
 Respond with ONLY valid JSON:
 {"true_claim": "...", "false_claim": "...", "explanation": "..."}`;
@@ -129,7 +148,7 @@ export default async function handler(req, res) {
     const claims = [];
     const processedTitles = new Set();
     
-    for (let i = 0; i < Math.min(15, allArticles.length); i++) {
+    for (let i = 0; i < Math.min(25, allArticles.length); i++) {
       const article = allArticles[i];
       
       // Skip duplicates
