@@ -76,21 +76,31 @@ async function callGroq(prompt) {
 async function generateClaim(title, source) {
   const prompt = `Based on this headline: "${title}"
 
-Create a true/false claim pair where the FALSE version changes THE KEY PART - the most important detail.
+Create a true/false claim pair that reads like a CLEAR NEWS STATEMENT someone would say out loud.
 
-RULE: Identify what makes this story newsworthy, then change THAT.
+IMPORTANT RULES:
+1. Write as a complete, clear sentence (not a headline fragment)
+2. Make it informative - tell the reader what happened
+3. Change THE KEY PART - the most newsworthy detail
+4. Both true and false versions should sound like real news
 
-Examples:
-- "Seven skiers dead in California avalanche" → Key part is LOCATION → "Seven skiers dead in Colorado avalanche"
-- "OpenAI partners with Microsoft" → Key part is COMPANY → "OpenAI partners with Google"  
-- "Tesla stock rises 15%" → Key part is DIRECTION → "Tesla stock falls 15%"
-- "President visits France" → Key part is COUNTRY → "President visits Germany"
-- "Company announces layoffs in Q3" → Key part is QUARTER → "Company announces layoffs in Q1"
-- "CEO resigns after scandal" → Key part is PERSON → "CFO resigns after scandal"
+GOOD claim examples:
+✅ "Seven skiers were found dead after an avalanche in California"
+✅ "OpenAI announced a new partnership with Microsoft for AI development"
+✅ "Tesla's stock price rose by 15% following strong earnings"
+✅ "The CEO of the company resigned after a financial scandal"
 
-DO NOT change trivial numbers (7→8 people, $100M→$110M). Change the MEANINGFUL part.
+BAD claim examples (don't do this):
+❌ "15 years of FP32 segmentation, and why Blackwell breaks the pattern" (too technical/confusing)
+❌ "Company announces thing" (too vague)
+❌ "7 vs 8 skiers" (just a number change)
 
-The false claim should be plausible but wrong about what actually happened.
+Change examples:
+- Location: "California" → "Colorado"
+- Company: "OpenAI" → "Google"
+- Direction: "rose" → "fell"
+- Person/Role: "CEO" → "CFO"
+- Country: "France" → "Germany"
 
 Respond with ONLY valid JSON:
 {"true_claim": "...", "false_claim": "...", "explanation": "..."}`;
