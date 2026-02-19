@@ -1,3 +1,4 @@
+
 {
   "rewrites": [
     {
@@ -8,7 +9,27 @@
   "crons": [
     {
       "path": "/api/cron/daily-generate",
-      "schedule": "0 4 * * *"
+      "schedule": "0 14 * * *"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }
