@@ -1,148 +1,40 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ===== ARTICLE FUNCTIONS =====
-
-export async function saveArticles(articles) {
-  const { data, error } = await supabase
-    .from('articles')
-    .insert(articles)
-    .select();
-  
-  if (error) throw error;
-  return data;
-}
-
-export async function getUnprocessedArticles() {
-  const { data, error } = await supabase
-    .from('articles')
-    .select('*')
-    .eq('processed', false)
-    .order('published_date', { ascending: false })
-    .limit(10);
-  
-  if (error) throw error;
-  return data || [];
-}
-
-export async function markArticleProcessed(articleId) {
-  const { error } = await supabase
-    .from('articles')
-    .update({ processed: true })
-    .eq('id', articleId);
-  
-  if (error) throw error;
-}
-
-// ===== DRAFT CLAIM FUNCTIONS =====
-
-export async function saveDraftClaims(claims) {
-  const { data, error } = await supabase
-    .from('claim_pairs_draft')
-    .insert(claims)
-    .select();
-  
-  if (error) throw error;
-  return data;
-}
-
-export async function getDraftClaims() {
-  const { data, error } = await supabase
-    .from('claim_pairs_draft')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
-  return data || [];
-}
-
-export async function deleteDraftClaim(claimId) {
-  const { error } = await supabase
-    .from('claim_pairs_draft')
-    .delete()
-    .eq('id', claimId);
-  
-  if (error) throw error;
-}
-
-// ===== APPROVED CLAIM FUNCTIONS =====
-
-export async function approveClaim(draftClaim) {
-  // Insert into approved table
-  const { data, error } = await supabase
-    .from('claim_pairs_approved')
-    .insert({
-      true_claim: draftClaim.true_claim,
-      false_claim: draftClaim.false_claim,
-      explanation: draftClaim.explanation,
-      source: draftClaim.source,
-      date: draftClaim.date
-    })
-    .select();
-  
-  if (error) throw error;
-  
-  // Delete from draft
-  await deleteDraftClaim(draftClaim.id);
-  
-  return data;
-}
-
-export async function getRandomApprovedClaims(count = 10) {
-  // Get total count
-  const { count: total } = await supabase
-    .from('claim_pairs_approved')
-    .select('*', { count: 'exact', head: true });
-  
-  if (!total || total === 0) return [];
-  
-  // Get random claims (prioritize less-shown ones)
+// Get random approved claims
+export async function getRandomApprovedClaims(limit = 10) {
   const { data, error } = await supabase
     .from('claim_pairs_approved')
     .select('*')
-    .order('times_shown', { ascending: true })
-    .limit(count);
-  
-  if (error) throw error;
-  return data || [];
+    .order('id', { ascending: false })
+    .limit(limit * 3); // Get more to randomize from
+
+  if (error) {
+    console.error('Error fetching claims:', error);
+    return [];
+  }
+
+  // Shuffle and return limited amount
+  const shuffled = data.sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, limit);
 }
 
+// Increment times_shown for a claim
 export async function incrementClaimShown(claimId) {
-  const { error } = await supabase
-    .rpc('increment_times_shown', { claim_id: claimId });
+  const { error } = await supabase.rpc('increment_claim_shown', { 
+    claim_id: claimId 
+  });
   
   if (error) {
-    // Fallback if RPC doesn't exist
-    const { data } = await supabase
-      .from('claim_pairs_approved')
-      .select('times_shown')
-      .eq('id', claimId)
-      .single();
-    
-    if (data) {
-      await supabase
-        .from('claim_pairs_approved')
-        .update({ times_shown: data.times_shown + 1 })
-        .eq('id', claimId);
-    }
+    console.error('Error incrementing claim shown:', error);
   }
 }
 
-export async function getApprovedClaimsCount() {
-  const { count, error } = await supabase
-    .from('claim_pairs_approved')
-    .select('*', { count: 'exact', head: true });
-  
-  if (error) return 0;
-  return count || 0;
-}
-
-// ===== USER SESSION FUNCTIONS =====
-
+// Save user's answer
 export async function saveUserAnswer(sessionId, claimId, selectedClaim, isCorrect) {
   const { error } = await supabase
     .from('user_sessions')
@@ -152,64 +44,93 @@ export async function saveUserAnswer(sessionId, claimId, selectedClaim, isCorrec
       selected_claim: selectedClaim,
       is_correct: isCorrect
     });
-  
-  if (error) console.error('Error saving answer:', error);
+
+  if (error) {
+    console.error('Error saving answer:', error);
+  }
 }
 
+// Report a claim as bad/incorrect
 export async function reportClaim(claimId, reason = null) {
-  const { error } = await supabase
-    .from('claim_pairs_approved')
-    .update({ 
-      times_reported: supabase.raw('COALESCE(times_reported, 0) + 1'),
-      last_reported_at: new Date().toISOString(),
-      report_reason: reason
-    })
-    .eq('id', claimId);
+  try {
+    // First, get the current times_reported value
+    const { data: currentData, error: fetchError } = await supabase
+      .from('claim_pairs_approved')
+      .select('times_reported')
+      .eq('id', claimId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current report count:', fetchError);
+      throw fetchError;
+    }
+
+    const currentCount = currentData?.times_reported || 0;
+
+    // Update with incremented value
+    const { data, error } = await supabase
+      .from('claim_pairs_approved')
+      .update({ 
+        times_reported: currentCount + 1,
+        last_reported_at: new Date().toISOString(),
+        report_reason: reason
+      })
+      .eq('id', claimId)
+      .select();
   
-  if (error) console.error('Error reporting claim:', error);
+    if (error) {
+      console.error('Error reporting claim:', error);
+      throw error;
+    }
+
+    console.log('✅ Claim reported successfully:', data);
+    return data;
+  } catch (error) {
+    console.error('Report claim failed:', error);
+    throw error;
+  }
 }
 
+// Get all reported claims (for admin)
 export async function getReportedClaims() {
   const { data, error } = await supabase
     .from('claim_pairs_approved')
     .select('*')
     .gt('times_reported', 0)
     .order('times_reported', { ascending: false });
-  
-  if (error) throw error;
-  return data || [];
+
+  if (error) {
+    console.error('Error fetching reported claims:', error);
+    return [];
+  }
+
+  return data;
 }
 
-export async function deleteClaimPermanently(claimId) {
+// Delete a claim
+export async function deleteClaim(claimId) {
   const { error } = await supabase
     .from('claim_pairs_approved')
     .delete()
     .eq('id', claimId);
-  
-  if (error) throw error;
+
+  if (error) {
+    console.error('Error deleting claim:', error);
+    throw error;
+  }
 }
 
-export async function deleteOldManualClaims() {
-  // Delete claims older than a specific date (before automation started)
-  const automationStartDate = '2025-02-19'; // Adjust this to when you deployed automation
-  
-  const { error } = await supabase
+// Get all claims (for admin)
+export async function getAllClaims() {
+  const { data, error } = await supabase
     .from('claim_pairs_approved')
-    .delete()
-    .lt('created_at', automationStartDate);
-  
-  if (error) throw error;
-}
+    .select('*')
+    .order('date', { ascending: false });
 
-export async function clearReports(claimId) {
-  const { error } = await supabase
-    .from('claim_pairs_approved')
-    .update({ 
-      times_reported: 0,
-      last_reported_at: null,
-      report_reason: null
-    })
-    .eq('id', claimId);
-  
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching all claims:', error);
+    return [];
+  }
+
+  return data;
 }
