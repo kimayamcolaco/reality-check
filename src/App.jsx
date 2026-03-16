@@ -26,6 +26,7 @@ function Game() {
   const [totalAnswered, setTotalAnswered] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(getSessionId());
+  const [hasReported, setHasReported] = useState(false);
 
   // Load today's progress from localStorage
   useEffect(() => {
@@ -151,8 +152,14 @@ function Game() {
   }
 
   async function handleReportClaim(claimId) {
-    await reportClaim(claimId);
-    alert('Thanks! This claim has been reported and will be reviewed.');
+    try {
+      await reportClaim(claimId);
+      setHasReported(true);
+      // Success feedback - will show checkmark in UI
+    } catch (error) {
+      console.error('Report failed:', error);
+      alert('Failed to report claim. Please try again.');
+    }
   }
 
   async function nextClaim() {
@@ -160,6 +167,7 @@ function Game() {
       setCurrentIndex(prev => prev + 1);
       setSelectedClaim(null);
       setShowFeedback(false);
+      setHasReported(false); // Reset for next claim
     } else {
       // Load more claims
       const moreClaims = await getRandomApprovedClaims(10);
@@ -347,9 +355,14 @@ function Game() {
           
           <button
             onClick={() => handleReportClaim(currentClaim.id)}
-            className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm"
+            disabled={hasReported}
+            className={`w-full py-3 rounded-xl font-medium transition-colors text-sm ${
+              hasReported 
+                ? 'bg-green-100 text-green-700 cursor-not-allowed' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
           >
-            👎 Report This Claim
+            {hasReported ? '✓ Reported - Thanks for the feedback!' : '👎 Report This Claim'}
           </button>
         </div>
       )}
