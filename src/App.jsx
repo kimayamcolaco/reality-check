@@ -319,10 +319,9 @@ function Game() {
             
             <div className="space-y-3 mb-6">
               {[
-                { value: 'too_similar', label: 'Claims are too similar', description: 'Hard to tell the difference' },
-                { value: 'not_useful', label: 'Not a useful fact', description: 'Claim doesn\'t make sense or isn\'t meaningful' },
+                { value: 'not_useful', label: 'Not a useful fact', description: 'Claims don\'t make sense or aren\'t meaningful' },
                 { value: 'bad_explanation', label: 'Bad explanation', description: 'Explanation doesn\'t provide useful context' },
-                { value: 'trivial_change', label: 'Trivial change', description: 'Only changed minor details like numbers' },
+                { value: 'trivial_change', label: 'Trivial change', description: 'Change is too minor or insignificant' },
                 { value: 'other', label: 'Other', description: 'Different issue' }
               ].map(reason => (
                 <label
