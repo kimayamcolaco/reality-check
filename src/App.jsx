@@ -128,6 +128,11 @@ function Game() {
       setHasReported(true);
       setShowReportModal(false);
       setReportReason('');
+      
+      // Auto-advance to next claim after 1 second
+      setTimeout(() => {
+        nextClaim();
+      }, 1000);
     } catch (error) {
       console.error('❌ Report failed:', error);
       alert('Failed to report: ' + error.message);
@@ -300,7 +305,7 @@ function Game() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {hasReported ? '✓ Reported - Thanks!' : '👎 Report This Claim'}
+            {hasReported ? '✓ Reported - Moving to next...' : '👎 Report This Claim'}
           </button>
         </div>
       )}
