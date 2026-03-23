@@ -26,63 +26,38 @@ function Game() {
   const [totalAnswered, setTotalAnswered] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sessionId] = useState(getSessionId());
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
   const [hasReported, setHasReported] = useState(false);
 
   // Load today's progress from localStorage
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0]; // "2026-02-19"
+    const today = new Date().toISOString().split('T')[0];
     const savedData = localStorage.getItem('reality_check_daily_progress');
     
     if (savedData) {
       const parsed = JSON.parse(savedData);
-      
-      // Check if it's from today
       if (parsed.date === today) {
-        // Restore today's progress
         setScore(parsed.score || 0);
         setTotalAnswered(parsed.totalAnswered || 0);
-        console.log('📊 Restored today\'s progress:', parsed);
       } else {
-        // It's a new day - reset!
-        console.log('🌅 New day! Resetting progress');
         localStorage.setItem('reality_check_daily_progress', JSON.stringify({
-          date: today,
-          score: 0,
-          totalAnswered: 0
+          date: today, score: 0, totalAnswered: 0
         }));
       }
     } else {
-      // First time today
       localStorage.setItem('reality_check_daily_progress', JSON.stringify({
-        date: today,
-        score: 0,
-        totalAnswered: 0
+        date: today, score: 0, totalAnswered: 0
       }));
     }
   }, []);
 
-  // Save progress whenever score or totalAnswered changes
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     localStorage.setItem('reality_check_daily_progress', JSON.stringify({
-      date: today,
-      score,
-      totalAnswered
+      date: today, score, totalAnswered
     }));
   }, [score, totalAnswered]);
-
-  // Fun titles based on score
-  const getFunTitle = () => {
-    const percentage = totalAnswered > 0 ? (score / totalAnswered) * 100 : 0;
-    
-    if (totalAnswered === 0) return "News Rookie";
-    if (percentage >= 90) return "Reality Expert";
-    if (percentage >= 75) return "Fake News Detective";
-    if (percentage > 50) return "Truth Seeker";
-    if (percentage === 50) return "50/50 Guesser";
-    if (percentage >= 25) return "Fake News Victim";
-    return "Major Reality Check Needed";
-  };
 
   useEffect(() => {
     loadClaims();
@@ -90,30 +65,19 @@ function Game() {
 
   async function loadClaims() {
     try {
-      const randomClaims = await getRandomApprovedClaims(50); // Get more to filter from
+      const randomClaims = await getRandomApprovedClaims(50);
       
       if (randomClaims.length === 0) {
         setClaims([]);
       } else {
-        // Get seen claims from localStorage
         const seenClaimsJSON = localStorage.getItem('reality_check_seen');
         const seenClaims = seenClaimsJSON ? JSON.parse(seenClaimsJSON) : [];
-        
-        console.log('📊 Total claims fetched:', randomClaims.length);
-        console.log('👀 Already seen:', seenClaims.length);
-        
-        // Filter out claims already seen
         const unseenClaims = randomClaims.filter(claim => !seenClaims.includes(claim.id));
         
-        console.log('✨ Unseen claims available:', unseenClaims.length);
-        
-        // If all claims have been seen, reset and show all
         if (unseenClaims.length === 0) {
-          console.log('🔄 All claims seen! Resetting...');
           localStorage.setItem('reality_check_seen', JSON.stringify([]));
           setClaims(randomClaims.slice(0, 10));
         } else {
-          console.log('🎯 Showing', Math.min(10, unseenClaims.length), 'unseen claims');
           setClaims(unseenClaims.slice(0, 10));
         }
       }
@@ -136,29 +100,37 @@ function Game() {
       setScore(prev => prev + 1);
     }
 
-    // Track answer
     const currentClaim = claims[currentIndex];
     await incrementClaimShown(currentClaim.id);
     await saveUserAnswer(sessionId, currentClaim.id, claimType, isCorrect);
     
-    // Mark as seen in localStorage
     const seenClaimsJSON = localStorage.getItem('reality_check_seen');
     const seenClaims = seenClaimsJSON ? JSON.parse(seenClaimsJSON) : [];
     if (!seenClaims.includes(currentClaim.id)) {
       seenClaims.push(currentClaim.id);
       localStorage.setItem('reality_check_seen', JSON.stringify(seenClaims));
-      console.log('✅ Marked as seen. Total seen:', seenClaims.length);
     }
   }
 
-  async function handleReportClaim(claimId) {
+  async function handleSubmitReport() {
+    if (!reportReason) {
+      alert('Please select a reason for reporting');
+      return;
+    }
+
     try {
-      await reportClaim(claimId);
+      const currentClaim = claims[currentIndex];
+      console.log('🚨 Submitting report:', currentClaim.id, reportReason);
+      
+      await reportClaim(currentClaim.id, reportReason);
+      
+      console.log('✅ Report successful!');
       setHasReported(true);
-      // Success feedback - will show checkmark in UI
+      setShowReportModal(false);
+      setReportReason('');
     } catch (error) {
-      console.error('Report failed:', error);
-      alert('Failed to report claim. Please try again.');
+      console.error('❌ Report failed:', error);
+      alert('Failed to report: ' + error.message);
     }
   }
 
@@ -167,15 +139,16 @@ function Game() {
       setCurrentIndex(prev => prev + 1);
       setSelectedClaim(null);
       setShowFeedback(false);
-      setHasReported(false); // Reset for next claim
+      setHasReported(false);
+      setReportReason('');
     } else {
-      // Load more claims
       const moreClaims = await getRandomApprovedClaims(10);
       if (moreClaims.length > 0) {
         setClaims(moreClaims);
         setCurrentIndex(0);
         setSelectedClaim(null);
         setShowFeedback(false);
+        setHasReported(false);
       }
     }
   }
@@ -189,15 +162,6 @@ function Game() {
     return { title: 'Major Reality Check Needed', emoji: '⚠️', color: 'text-red-600' };
   }
 
-  function resetGame() {
-    setCurrentIndex(0);
-    setSelectedClaim(null);
-    setShowFeedback(false);
-    setScore(0);
-    setTotalAnswered(0);
-    loadClaims();
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -206,22 +170,16 @@ function Game() {
     );
   }
 
-  // Empty state - no claims yet
   if (claims.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4">
         <div className="max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center">
           <div className="text-6xl mb-4">🚀</div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">
-            Reality Check
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">Reality Check</h1>
           <p className="text-gray-600 mb-6">
-            New claims auto-generate daily at 6am. Check back soon or visit admin to see the schedule!
+            New claims auto-generate daily at 6am. Check back soon!
           </p>
-          <a
-            href="/admin"
-            className="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
-          >
+          <a href="/admin" className="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg">
             Go to Admin Panel →
           </a>
         </div>
@@ -233,8 +191,6 @@ function Game() {
   const isCorrect = selectedClaim === 'true';
   const accuracy = totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
   const titleInfo = getTitle(accuracy);
-  
-  // Randomize which side shows true vs false (consistent per claim)
   const showTrueOnLeft = currentClaim.id ? 
     (parseInt(currentClaim.id.split('-')[0], 16) % 2 === 0) : 
     (currentIndex % 2 === 0);
@@ -243,12 +199,8 @@ function Game() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center p-4">
       {/* Header */}
       <div className="w-full max-w-3xl mb-8 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
-          Reality Check
-        </h1>
-        <p className="text-lg text-gray-600 mb-2">
-          Fact or fiction? Pick the one you believe is a fact!
-        </p>
+        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">Reality Check</h1>
+        <p className="text-lg text-gray-600 mb-2">Fact or fiction? Pick the real news!</p>
         <div className="text-3xl font-bold text-blue-600 mb-2">
           Real News Identified: {score}/{totalAnswered}
         </div>
@@ -259,17 +211,12 @@ function Game() {
         )}
       </div>
 
-      {/* Admin Link */}
-      <a
-        href="/admin"
-        className="fixed top-4 right-4 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-      >
+      <a href="/admin" className="fixed top-4 right-4 text-sm text-gray-400 hover:text-gray-600 transition-colors">
         Admin
       </a>
 
-      {/* Cards Container */}
+      {/* Cards */}
       <div className="w-full max-w-4xl grid md:grid-cols-2 gap-6 mb-8">
-        {/* Card 1 - Left Side */}
         <button
           onClick={() => !showFeedback && handleSelectClaim(showTrueOnLeft ? 'true' : 'false')}
           disabled={showFeedback}
@@ -282,9 +229,7 @@ function Game() {
           }`}
         >
           {showFeedback && (
-            <div className="absolute top-4 right-4 text-3xl">
-              {showTrueOnLeft ? '✓' : '✗'}
-            </div>
+            <div className="absolute top-4 right-4 text-3xl">{showTrueOnLeft ? '✓' : '✗'}</div>
           )}
           <div className="flex flex-col h-full justify-center items-center text-center">
             <p className="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed">
@@ -293,7 +238,6 @@ function Game() {
           </div>
         </button>
 
-        {/* Card 2 - Right Side */}
         <button
           onClick={() => !showFeedback && handleSelectClaim(showTrueOnLeft ? 'false' : 'true')}
           disabled={showFeedback}
@@ -306,9 +250,7 @@ function Game() {
           }`}
         >
           {showFeedback && (
-            <div className="absolute top-4 right-4 text-3xl">
-              {showTrueOnLeft ? '✗' : '✓'}
-            </div>
+            <div className="absolute top-4 right-4 text-3xl">{showTrueOnLeft ? '✗' : '✓'}</div>
           )}
           <div className="flex flex-col h-full justify-center items-center text-center">
             <p className="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed">
@@ -325,16 +267,12 @@ function Game() {
             {isCorrect ? (
               <>
                 <div className="text-6xl mb-4">🎉</div>
-                <h2 className="text-3xl font-bold text-green-600 mb-2">
-                  You got it!
-                </h2>
+                <h2 className="text-3xl font-bold text-green-600 mb-2">You got it!</h2>
               </>
             ) : (
               <>
                 <div className="text-6xl mb-4">🤔</div>
-                <h2 className="text-3xl font-bold text-orange-600 mb-2">
-                  Oops, you need a Reality Check!
-                </h2>
+                <h2 className="text-3xl font-bold text-orange-600 mb-2">Oops, you need a Reality Check!</h2>
               </>
             )}
           </div>
@@ -354,7 +292,7 @@ function Game() {
           </button>
           
           <button
-            onClick={() => handleReportClaim(currentClaim.id)}
+            onClick={() => setShowReportModal(true)}
             disabled={hasReported}
             className={`w-full py-3 rounded-xl font-medium transition-colors text-sm ${
               hasReported 
@@ -362,8 +300,67 @@ function Game() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {hasReported ? '✓ Reported - Thanks for the feedback!' : '👎 Report This Claim'}
+            {hasReported ? '✓ Reported - Thanks!' : '👎 Report This Claim'}
           </button>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">Why are you reporting this?</h3>
+            <p className="text-gray-600 mb-6">Help us improve by telling us what's wrong:</p>
+            
+            <div className="space-y-3 mb-6">
+              {[
+                { value: 'too_similar', label: 'Claims are too similar', description: 'Hard to tell the difference' },
+                { value: 'not_useful', label: 'Not a useful fact', description: 'Claim doesn\'t make sense or isn\'t meaningful' },
+                { value: 'bad_explanation', label: 'Bad explanation', description: 'Explanation doesn\'t provide useful context' },
+                { value: 'trivial_change', label: 'Trivial change', description: 'Only changed minor details like numbers' },
+                { value: 'other', label: 'Other', description: 'Different issue' }
+              ].map(reason => (
+                <label
+                  key={reason.value}
+                  className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    reportReason === reason.value 
+                      ? 'border-blue-600 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="reportReason"
+                    value={reason.value}
+                    checked={reportReason === reason.value}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="sr-only"
+                  />
+                  <div className="font-medium text-gray-900 mb-1">{reason.label}</div>
+                  <div className="text-sm text-gray-600">{reason.description}</div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowReportModal(false);
+                  setReportReason('');
+                }}
+                className="flex-1 py-3 rounded-xl font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitReport}
+                disabled={!reportReason}
+                className="flex-1 py-3 rounded-xl font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Submit Report
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -371,12 +368,7 @@ function Game() {
 }
 
 export default function App() {
-  // Simple routing
   const isAdmin = window.location.pathname === '/admin';
-  
-  if (isAdmin) {
-    return <Admin />;
-  }
-  
+  if (isAdmin) return <Admin />;
   return <Game />;
 }
