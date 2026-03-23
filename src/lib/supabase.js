@@ -142,6 +142,31 @@ export async function deleteClaim(claimId) {
 // Alias for backwards compatibility
 export const deleteClaimPermanently = deleteClaim;
 
+// Clear all reports for a claim
+export async function clearReports(claimId) {
+  const { error } = await supabase
+    .from('claim_pairs_approved')
+    .update({ 
+      times_reported: 0,
+      last_reported_at: null,
+      report_reason: null
+    })
+    .eq('id', claimId);
+
+  if (error) {
+    console.error('Error clearing reports:', error);
+    throw error;
+  }
+}
+
+// Delete old manual claims (if you had a manual_claims table)
+export async function deleteOldManualClaims() {
+  // This function is a no-op now since we don't have manual claims
+  // Keeping it for backwards compatibility
+  console.log('deleteOldManualClaims: No manual claims to delete');
+  return { deleted: 0 };
+}
+
 // Get all claims (for admin)
 export async function getAllClaims() {
   const { data, error } = await supabase
