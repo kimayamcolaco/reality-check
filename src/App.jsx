@@ -29,6 +29,7 @@ function Game() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [hasReported, setHasReported] = useState(false);
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   // Load today's progress from localStorage
   useEffect(() => {
@@ -216,6 +217,13 @@ function Game() {
         )}
       </div>
 
+      <button
+        onClick={() => setShowHowToPlay(true)}
+        className="fixed top-4 right-20 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+      >
+        How to Play
+      </button>
+
       <a href="/admin" className="fixed top-4 right-4 text-sm text-gray-400 hover:text-gray-600 transition-colors">
         Admin
       </a>
@@ -364,6 +372,61 @@ function Game() {
                 Submit Report
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* How to Play Modal */}
+      {showHowToPlay && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl">
+            <h2 className="text-3xl font-bold text-gray-900 mb-6">🎯 How to Play Reality Check</h2>
+            
+            <div className="space-y-6 text-gray-700">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">The Game:</h3>
+                <ul className="space-y-1 ml-4">
+                  <li>• Two claims appear - one is TRUE, one is FALSE</li>
+                  <li>• Both claims are based on real news from today</li>
+                  <li>• Pick the claim you think is REAL news</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Daily Progress:</h3>
+                <ul className="space-y-1 ml-4">
+                  <li>• Your score (how many you get right) persists throughout the day</li>
+                  <li>• Resets at midnight for a fresh start</li>
+                  <li>• Aim for "Reality Expert"!</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">After Each Answer:</h3>
+                <ul className="space-y-1 ml-4">
+                  <li>• See which claim was real (green border)</li>
+                  <li>• Read context about the actual news story</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Help Us Improve:</h3>
+                <ul className="space-y-1 ml-4">
+                  <li>• Report claims that don't make sense</li>
+                  <li>• Your feedback trains the AI to generate better claims</li>
+                </ul>
+              </div>
+
+              <p className="text-center text-lg font-medium text-blue-600 mt-6">
+                Ready to test your news instincts?
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowHowToPlay(false)}
+              className="w-full mt-6 bg-blue-600 text-white py-3 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-colors"
+            >
+              Got it!
+            </button>
           </div>
         </div>
       )}
