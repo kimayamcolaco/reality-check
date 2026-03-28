@@ -1,6 +1,6 @@
 # Reality Check
 
-A daily news verification game with elegant design.
+A daily news verification game- stay uup to date in a fun way!
 
 ## Quick Start
 
